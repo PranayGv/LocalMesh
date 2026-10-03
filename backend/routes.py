@@ -3,8 +3,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend import decision, mock_data, returns_store
+from backend import decision, mock_data, returns_store, warehouses
 from backend.models import (
+    AdPlacement,
     AreaOption,
     CategoryOption,
     Classification,
@@ -16,6 +17,9 @@ from backend.models import (
     ReturnListItem,
     ReturnRecord,
     ReturnSubmission,
+    StockSummary,
+    WarehouseOverrideRequest,
+    WarehouseSummary,
 )
 
 router = APIRouter()
@@ -135,3 +139,52 @@ def return_detail(return_id: str):
     if record is None:
         raise HTTPException(status_code=404, detail="Return not found")
     return record
+
+
+@router.get("/warehouses", response_model=list[WarehouseSummary])
+def list_warehouses():
+    """Every local warehouse (one per area), each stocking 4-6 product
+    types at 10-15 units — the shared data WareHub, SeasonMart and the
+    ops dashboard all read from."""
+    return warehouses.all_warehouses()
+
+
+@router.get("/warehouses/{area_code}", response_model=WarehouseSummary)
+def warehouse_detail(area_code: str):
+    summary = warehouses.warehouse_summary(area_code)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Warehouse not found")
+    return summary
+
+
+@router.post("/warehouses/{area_code}/override", response_model=WarehouseSummary)
+def override_warehouse_product(area_code: str, body: WarehouseOverrideRequest):
+    """Manager override of a stocked product's name/qty/price. There is no
+    "approve" endpoint — a manager always explicitly states what to change."""
+    summary = warehouses.apply_override(
+        area_code, body.product, qty=body.qty, price=body.price, new_name=body.new_name
+    )
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Warehouse or product not found")
+    return summary
+
+
+@router.delete("/warehouses/overrides")
+def clear_warehouse_overrides():
+    warehouses.clear_overrides()
+    return {"cleared": True}
+
+
+@router.get("/stock", response_model=StockSummary)
+def stock_summary():
+    """Network-wide stock: the central warehouse's buffer, plus
+    totals = central + every local warehouse's units, per product — the
+    "available stock" figure SeasonMart shows on each product card."""
+    return StockSummary(central=warehouses.central_stock(), totals=warehouses.total_stock_by_product())
+
+
+@router.get("/ads", response_model=AdPlacement)
+def ad_placement(season: str = "summer", area_code: str = ""):
+    """Same product set for a season everywhere; order (so which products
+    land in the top vs. bottom ad slot) is shuffled per city."""
+    return AdPlacement(season=season, area_code=area_code, products=warehouses.ad_order_for(season, area_code))

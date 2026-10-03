@@ -162,6 +162,25 @@ body {
   margin-top: 2px;
 }
 
+.app-links {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.app-links a {
+  font-size: 0.78rem;
+  color: var(--header-text);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 5px 10px;
+  text-decoration: none;
+}
+
+.app-links a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .live-stat .tstat-value {
   display: inline-flex;
   align-items: center;

@@ -58,15 +58,24 @@ button { cursor: pointer; color: inherit; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; padding: .4rem 1.4rem 1.4rem; }
 .shop-layout { display: flex; align-items: flex-start; gap: 1rem; padding: 0 1.4rem 1.4rem; }
 .shop-layout .grid { flex: 1; min-width: 0; padding: 0; }
-.ad-rail { width: 240px; flex: none; }
-.ad-card { position: sticky; top: .8rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: .9rem; }
-.ad-card h4 { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin-bottom: .6rem; }
-.ad-item { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem 0; border-top: 1px solid var(--line); font-size: .86rem; }
+.ad-rail { width: 240px; flex: none; display: flex; flex-direction: column; gap: .9rem; }
+/* Ads are deliberately louder than product cards — bold headline, a small
+   "Ad" pill and a fake display-URL (Google-Ads style), a tinted border and
+   background — so a shopper can never mistake one for a plain listing. */
+.ad-card { position: sticky; top: .8rem; border: 1.5px solid var(--org); border-radius: 10px; background: var(--ban); padding: 1rem; }
+.ad-top { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .3rem; flex-wrap: wrap; }
+.ad-tag { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #fff; background: var(--org); border-radius: 3px; padding: .05rem .4rem; }
+.ad-url { font-size: .76rem; color: var(--ok); }
+.ad-card h4 { font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); margin-bottom: .6rem; line-height: 1.25; }
+.ad-item { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem 0; border-top: 1px dashed var(--line); font-size: .9rem; font-weight: 700; }
 .ad-item:first-of-type { border-top: 0; padding-top: 0; }
-.ad-item span { color: var(--teal); font-weight: 600; white-space: nowrap; }
+.ad-item span { color: var(--org); font-weight: 800; white-space: nowrap; }
+.ad-cta { display: block; width: 100%; margin-top: .7rem; border: 0; border-radius: 6px; background: var(--org); color: #fff; font-weight: 800; padding: .55rem; font-size: .88rem; letter-spacing: .01em; }
+.ad-cta:hover { filter: brightness(.94); }
 @media (max-width: 920px) {
   .shop-layout { flex-direction: column; }
-  .ad-rail { width: 100%; }
+  .ad-rail { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .ad-rail .ad-card { flex: 1; min-width: 220px; }
   .ad-card { position: static; }
 }
 .obw { background: var(--surface); border-top: 1px solid var(--line); }
@@ -87,6 +96,8 @@ button { cursor: pointer; color: inherit; }
 .price s { font-size: .82rem; font-weight: 400; color: var(--mute); margin-left: .4rem; }
 .del { font-size: .85rem; color: var(--ok); }
 .instock { color: var(--teal); font-weight: 700; }
+.netstock { font-size: .76rem; color: var(--mute); margin-top: .15rem; }
+.netstock b { color: var(--ink); }
 .low { font-size: .82rem; color: var(--red); font-weight: 600; min-height: 1.2em; }
 .acts { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: .5rem; }
 .btn { border: 1px solid var(--teal); background: var(--card); color: var(--teal); border-radius: 6px; padding: .5rem .4rem; font-weight: 600; transition: all .2s ease; }

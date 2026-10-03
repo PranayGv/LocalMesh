@@ -139,3 +139,37 @@ class ReturnListItem(BaseModel):
     submitted_at: str
     status: ReturnStatus
     status_label: str
+
+
+class WarehouseProduct(BaseModel):
+    name: str
+    category: str
+    climate_code: str
+    season: str
+    qty: int
+    price: int
+
+
+class WarehouseSummary(BaseModel):
+    area_code: str
+    area_name: str
+    products: list[WarehouseProduct]
+    total_units: int
+
+
+class StockSummary(BaseModel):
+    central: dict[str, int]
+    totals: dict[str, int]
+
+
+class WarehouseOverrideRequest(BaseModel):
+    product: str = Field(min_length=1)
+    qty: Optional[int] = Field(default=None, ge=0)
+    price: Optional[int] = Field(default=None, ge=0)
+    new_name: Optional[str] = None
+
+
+class AdPlacement(BaseModel):
+    season: str
+    area_code: str
+    products: list[str]

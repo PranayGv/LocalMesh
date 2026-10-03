@@ -73,6 +73,8 @@ table tr.sel:hover td{background:#e3f1ef}
 }
 
 /* Header buttons, admin profile and dark mode */
+.whpick{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:#bcd3d0}
+.whpick select{background:#0b3d3d;color:#fff;border:1px solid #5d8a87;border-radius:6px;padding:.2rem .5rem}
 .theme,.adm{background:none;border:1px solid #5d8a87;color:#fff;border-radius:6px;padding:.2rem .7rem;font-size:.85rem}
 #admDlg{width:min(94vw,30rem)}
 #admDlg label{font-weight:600;font-size:.88rem}
@@ -81,7 +83,7 @@ table tr.sel:hover td{background:#e3f1ef}
 .who{display:flex;gap:.7rem;align-items:center;margin-bottom:.6rem}
 .who small{display:block;color:var(--mute);font-size:.82rem}
 .av{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1.2rem}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:.4rem}
 .stats div{background:#eef7f6;border-radius:8px;padding:.4rem;text-align:center}
 .stats b{display:block;font-size:1.2rem}.stats small{font-size:.72rem;color:var(--mute)}
 .log{list-style:none;padding:0;margin:.5rem 0}
@@ -119,6 +121,8 @@ table tr.sel:hover td{background:#e3f1ef}
 [data-theme=dark] table tr.sel:hover td{background:#23474b}
 [data-theme=dark] .qb button:hover{background:var(--teal);color:#fff}
 }
+.whpick{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:#bcd3d0}
+.whpick select{background:#0b3d3d;color:#fff;border:1px solid #5d8a87;border-radius:6px;padding:.2rem .5rem}
 .theme,.adm{background:none;border:1px solid #5d8a87;color:#fff;border-radius:6px;padding:.2rem .7rem;font-size:.85rem}
 #admDlg{width:min(94vw,30rem)}
 #admDlg label{font-weight:600;font-size:.88rem}
@@ -127,7 +131,7 @@ table tr.sel:hover td{background:#e3f1ef}
 .who{display:flex;gap:.7rem;align-items:center;margin-bottom:.6rem}
 .who small{display:block;color:var(--mute);font-size:.82rem}
 .av{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1.2rem}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:.4rem}
 .stats div{background:#eef7f6;border-radius:8px;padding:.4rem;text-align:center}
 .stats b{display:block;font-size:1.2rem}.stats small{font-size:.72rem;color:var(--mute)}
 .log{list-style:none;padding:0;margin:.5rem 0}

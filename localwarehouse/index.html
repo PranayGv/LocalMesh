@@ -11,9 +11,10 @@
 <header class="hd">
   <b>WareHub</b>
   <span id="whName">Chennai Local Warehouse Administration</span>
+  <label class="whpick">Warehouse<select id="whSel" aria-label="Switch local warehouse"></select></label>
   <button class="theme" id="themeBtn">Dark mode</button>
   <button class="adm" id="admBtn" aria-haspopup="dialog">Admin: <b id="admName">Karthik</b></button>
-  <a href="../seasonmart-shop/index.html">Open SeasonMart store</a>
+  <a href="/shop/">Open SeasonMart store</a>
 </header>
 <nav class="tabs" id="tabs" aria-label="Sections">
   <button data-t="queue" class="on">Returns queue</button>
@@ -28,10 +29,22 @@
 <dialog id="ovDlg">
   <form id="ovForm">
     <h3 id="ovTitle">Override destination</h3>
+    <p class="empty" style="padding:0 0 .6rem">There is no auto-approve step — pick the destination to send this return to (pre-filled with the system's recommendation).</p>
     <label><input type="radio" name="d" value="repair"> Local repair</label>
-    <label><input type="radio" name="d" value="local" checked> Local warehouse</label>
+    <label><input type="radio" name="d" value="local"> Local warehouse</label>
     <label><input type="radio" name="d" value="far"> Far warehouse</label>
     <div class="dact"><button type="button" class="btn" id="ovCancel">Cancel</button><button type="submit" class="btn p1">Apply</button></div>
+  </form>
+</dialog>
+
+<dialog id="povDlg">
+  <form id="povForm">
+    <h3 id="povTitle">Override product</h3>
+    <p class="empty" style="padding:0 0 .6rem">Change this product's name, stock count or price for this warehouse.</p>
+    <label>Product name<input id="povName" name="name" required></label>
+    <label>Units in stock<input id="povQty" name="qty" type="number" min="0" required></label>
+    <label>Price (₹)<input id="povPrice" name="price" type="number" min="0" required></label>
+    <div class="dact"><button type="button" class="btn" id="povCancel">Cancel</button><button type="submit" class="btn p1">Apply override</button></div>
   </form>
 </dialog>
 
@@ -41,7 +54,6 @@
     <div class="who"><span class="av" id="admAv">K</span><div><b id="admTitle"></b><small id="admSub"></small></div></div>
     <label>Name<input id="aName" required></label>
     <label>Role<select id="aRole"><option>Warehouse manager</option><option>Supervisor</option><option>Inventory staff</option></select></label>
-    <label>Warehouse<input id="aWh"></label>
     <label>Shift<select id="aShift"><option>Morning (6 am to 2 pm)</option><option>Evening (2 pm to 10 pm)</option><option>Night (10 pm to 6 am)</option></select></label>
     <div class="dact"><button type="submit" class="btn p1">Save profile</button></div>
     <h4>Today's activity</h4>
