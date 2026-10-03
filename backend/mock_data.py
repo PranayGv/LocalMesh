@@ -13,13 +13,20 @@ AREAS = [
     {"code": "SHM", "name": "Shimla", "pincode": "171001", "climate_zone": "Cold", "avg_temp_c": 12},
 ]
 
+# Specific products (not abstract categories) — each still maps to one
+# underlying "category" code for the demand/climate-fit rules.
 CATEGORIES = [
-    {"code": "COOLER", "name": "Cooler", "suited_climates": ["Hot"]},
-    {"code": "FAN", "name": "Fan", "suited_climates": ["Hot", "Moderate"]},
-    {"code": "HEATER", "name": "Heater", "suited_climates": ["Cold", "Moderate"]},
+    {"code": "COOLER", "name": "ArcticBreeze Air Cooler", "suited_climates": ["Hot"]},
+    {"code": "FAN", "name": "ZephyrFlow Pedestal Fan", "suited_climates": ["Hot", "Moderate"]},
+    {"code": "HEATER", "name": "WarmGlow Room Heater", "suited_climates": ["Cold", "Moderate"]},
 ]
 
 MONTHS = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
+
+# Bounds for the thermal-map gauge, and the thresholds that classify a
+# temperature into Cold / Moderate / Hot — kept consistent with the
+# climate_zone already assigned to each area above.
+TEMP_SCALE = {"min_c": 0, "max_c": 45, "cold_max_c": 18, "hot_min_c": 30}
 
 # (area_code, category_code) -> 6 months of purchase counts, oldest to newest.
 PURCHASE_HISTORY = {

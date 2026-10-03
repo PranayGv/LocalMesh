@@ -43,6 +43,8 @@ def evaluate_demand(area_code: str, category_code: str) -> dict:
         "counts": counts,
         "recent_avg": recent_avg,
         "prior_avg": prior_avg,
+        "growth_pct": growth_pct,
+        "threshold": DEMAND_THRESHOLD,
         "has_demand": has_demand,
         "reason": reason,
     }
@@ -73,6 +75,8 @@ def evaluate_climate_fit(area_code: str, category_code: str) -> dict:
         "category_suited_climates": suited_climates,
         "is_climate_fit": is_climate_fit,
         "reason": reason,
+        "avg_temp_c": area["avg_temp_c"],
+        "temp_scale": mock_data.TEMP_SCALE,
     }
 
 

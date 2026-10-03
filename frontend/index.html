@@ -10,18 +10,25 @@
 <body>
   <main class="page">
     <header>
-      <h1>LocalMesh</h1>
-      <p class="subtitle">Smart routing for returned products — local warehouse or central hub?</p>
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </div>
+      <div>
+        <h1>LocalMesh</h1>
+        <p class="subtitle">Smart routing for returned products — local warehouse or central hub?</p>
+      </div>
     </header>
 
     <form id="review-form" class="card">
-      <label for="category">Product category</label>
-      <select id="category" required></select>
+      <label class="field-label" for="category">Product</label>
+      <div class="select-wrap"><select id="category" required></select></div>
 
-      <label for="area">Return area</label>
-      <select id="area" required></select>
+      <label class="field-label" for="area">Return area</label>
+      <div class="select-wrap"><select id="area" required></select></div>
 
-      <label for="review_text">Describe the issue with your returned item</label>
+      <label class="field-label" for="review_text">Return review</label>
       <textarea id="review_text" rows="4" required
         placeholder="e.g. The cooler works fine but it's too noisy for my bedroom."></textarea>
 

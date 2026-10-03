@@ -34,8 +34,17 @@ class DemandInfo(BaseModel):
     counts: list[int]
     recent_avg: float
     prior_avg: float
+    growth_pct: float
+    threshold: int
     has_demand: bool
     reason: str
+
+
+class TempScale(BaseModel):
+    min_c: int
+    max_c: int
+    cold_max_c: int
+    hot_min_c: int
 
 
 class ClimateInfo(BaseModel):
@@ -43,6 +52,8 @@ class ClimateInfo(BaseModel):
     category_suited_climates: list[str]
     is_climate_fit: bool
     reason: str
+    avg_temp_c: int
+    temp_scale: TempScale
 
 
 class Decision(BaseModel):
