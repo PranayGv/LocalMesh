@@ -61,7 +61,7 @@ def process_review(body: ProcessReviewRequest, request: Request):
 
     demand = decision.evaluate_demand(body.area_code, body.category_code)
     climate = decision.evaluate_climate_fit(body.area_code, body.category_code)
-    routing = decision.decide_routing(demand, climate, area["name"], category["name"])
+    routing = decision.decide_routing(demand, climate, area, category["name"])
 
     return ProcessReviewResponse(
         classification=classification,

@@ -23,6 +23,11 @@ class Classification(BaseModel):
     confidence: float
 
 
+class Warehouse(BaseModel):
+    code: str
+    name: str
+
+
 class DefectBranch(BaseModel):
     resolution: Literal["refund", "replacement"]
     customer_requested: bool
@@ -30,6 +35,7 @@ class DefectBranch(BaseModel):
     repair_successful: bool
     repair_reason: str
     route: Literal["local_warehouse", "central_warehouse"]
+    warehouse: Optional[Warehouse] = None
 
 
 class DemandInfo(BaseModel):
@@ -66,6 +72,7 @@ class Decision(BaseModel):
     route: Literal["local_warehouse", "central_hub"]
     driver: Literal["demand", "climate_fit", "none"]
     reason: str
+    warehouse: Optional[Warehouse] = None
 
 
 class DissatisfactionBranch(BaseModel):

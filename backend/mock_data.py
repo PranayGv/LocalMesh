@@ -29,6 +29,50 @@ CATEGORIES = [
     {"code": "HEATER", "name": "WarmGlow Room Heater", "suited_climates": ["Cold", "Moderate"]},
 ]
 
+# One or two named local fulfillment warehouses per area. Once a return is
+# routed locally, one of these is assigned (deterministically, per product)
+# so the admin panel can show exactly where the item is going rather than
+# just the generic "local warehouse" route.
+LOCAL_WAREHOUSES = {
+    "RAJ": [
+        {"code": "RAJ-W1", "name": "Jaipur Sitapura Warehouse"},
+        {"code": "RAJ-W2", "name": "Jaipur Malviya Nagar Depot"},
+    ],
+    "DEL": [
+        {"code": "DEL-W1", "name": "Delhi Okhla Warehouse"},
+        {"code": "DEL-W2", "name": "Delhi Narela Depot"},
+    ],
+    "BLR": [
+        {"code": "BLR-W1", "name": "Bengaluru Peenya Warehouse"},
+        {"code": "BLR-W2", "name": "Bengaluru Electronic City Depot"},
+    ],
+    "PUN": [
+        {"code": "PUN-W1", "name": "Pune Hinjewadi Warehouse"},
+        {"code": "PUN-W2", "name": "Pune Chakan Depot"},
+    ],
+    "SHM": [
+        {"code": "SHM-W1", "name": "Shimla Kasumpti Warehouse"},
+    ],
+    "MUM": [
+        {"code": "MUM-W1", "name": "Mumbai Bhiwandi Warehouse"},
+        {"code": "MUM-W2", "name": "Mumbai Taloja Depot"},
+    ],
+    "CHE": [
+        {"code": "CHE-W1", "name": "Chennai Sriperumbudur Warehouse"},
+        {"code": "CHE-W2", "name": "Chennai Ambattur Depot"},
+    ],
+    "KOL": [
+        {"code": "KOL-W1", "name": "Kolkata Dankuni Warehouse"},
+        {"code": "KOL-W2", "name": "Kolkata Salt Lake Depot"},
+    ],
+    "LKO": [
+        {"code": "LKO-W1", "name": "Lucknow Amausi Warehouse"},
+    ],
+    "LEH": [
+        {"code": "LEH-W1", "name": "Leh Choglamsar Warehouse"},
+    ],
+}
+
 MONTHS = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
 
 # Bounds for the thermal-map gauge, and the thresholds that classify a
@@ -79,6 +123,22 @@ def get_category(category_code: str) -> dict | None:
 
 def get_purchase_history(area_code: str, category_code: str) -> list[int]:
     return PURCHASE_HISTORY.get((area_code, category_code), list(_DEFAULT_HISTORY))
+
+
+def get_local_warehouses(area_code: str) -> list[dict]:
+    return LOCAL_WAREHOUSES.get(area_code, [])
+
+
+def pick_local_warehouse(area_code: str, seed_key: str) -> dict | None:
+    """Deterministically assign one of the area's local warehouses to a
+    returned item, so repeat demo runs on the same (product, area) pair
+    always land at the same warehouse, consistent with the other
+    hash-seeded picks in this module."""
+    warehouses = get_local_warehouses(area_code)
+    if not warehouses:
+        return None
+    digest = int(hashlib.sha256(f"warehouse|{area_code}|{seed_key}".encode()).hexdigest(), 16)
+    return warehouses[digest % len(warehouses)]
 
 
 def suited_climates_for_season(season: str | None) -> list[str]:

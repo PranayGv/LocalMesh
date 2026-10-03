@@ -205,7 +205,9 @@ function renderDefect(defect) {
   const isLocal = defect.route === "local_warehouse";
   const bannerClass = isLocal ? "local-warehouse" : "central-hub";
   const icon = isLocal ? ICONS.warehouse : ICONS.hub;
-  const routeLabel = isLocal ? "Repaired — Local Warehouse" : "Central Warehouse — Deep Repair";
+  const routeLabel = isLocal
+    ? `Repaired — ${defect.warehouse ? defect.warehouse.name : "Local Warehouse"}`
+    : "Central Warehouse — Deep Repair";
 
   return `
     <section class="panel">
@@ -311,7 +313,9 @@ function renderClimateSection(climate) {
 function renderDecision(decision) {
   const isWarehouse = decision.route === "local_warehouse";
   const decisionClass = isWarehouse ? "local-warehouse" : "central-hub";
-  const routeLabel = isWarehouse ? "Local Warehouse" : "Central Hub";
+  const routeLabel = isWarehouse
+    ? `Local Warehouse — ${decision.warehouse ? decision.warehouse.name : "unassigned"}`
+    : "Central Hub";
   const icon = isWarehouse ? ICONS.warehouse : ICONS.hub;
 
   return `

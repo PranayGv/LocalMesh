@@ -100,26 +100,34 @@ def evaluate_climate_fit(area_code: str, category_code: str) -> dict:
     return _climate_result(area, category["suited_climates"], category["name"])
 
 
-def decide_routing(demand: dict, climate: dict, area_name: str, category_name: str) -> dict:
+def decide_routing(demand: dict, climate: dict, area: dict, category_name: str) -> dict:
+    area_name = area["name"]
+
     if demand["has_demand"]:
+        warehouse = mock_data.pick_local_warehouse(area["code"], category_name)
+        warehouse_phrase = warehouse["name"] if warehouse else "the local warehouse"
         return {
             "route": "local_warehouse",
             "driver": "demand",
             "reason": (
                 f"There is current demand for {category_name} in {area_name}, so the returned item "
-                "will be stored in the local warehouse to meet upcoming orders."
+                f"will be stored at {warehouse_phrase} to meet upcoming orders."
             ),
+            "warehouse": warehouse,
         }
 
     if climate["is_climate_fit"]:
+        warehouse = mock_data.pick_local_warehouse(area["code"], category_name)
+        warehouse_phrase = warehouse["name"] if warehouse else "the local warehouse"
         return {
             "route": "local_warehouse",
             "driver": "climate_fit",
             "reason": (
                 f"There is no strong current demand for {category_name} in {area_name}, but it suits "
-                "the local climate, so the returned item will be stored in the local warehouse for "
+                f"the local climate, so the returned item will be stored at {warehouse_phrase} for "
                 "when demand picks up."
             ),
+            "warehouse": warehouse,
         }
 
     return {
@@ -129,6 +137,7 @@ def decide_routing(demand: dict, climate: dict, area_name: str, category_name: s
             f"There is no current demand for {category_name} in {area_name}, and it does not suit "
             "the local climate, so the returned item will be sent to the central hub."
         ),
+        "warehouse": None,
     }
 
 
@@ -166,12 +175,15 @@ def evaluate_defect_resolution(product: str, area_code: str, preferred_resolutio
 
     if repair_successful:
         route = "local_warehouse"
+        warehouse = mock_data.pick_local_warehouse(area_code, f"defect|{product}")
+        warehouse_phrase = warehouse["name"] if warehouse else "the local warehouse"
         repair_reason = (
             "Repair completed successfully at the local repair shop. "
-            "The refurbished unit is restocked at the local warehouse."
+            f"The refurbished unit is restocked at {warehouse_phrase}."
         )
     else:
         route = "central_warehouse"
+        warehouse = None
         repair_reason = (
             "Repair attempt at the local repair shop was unsuccessful. "
             "The unit is escalated to the central warehouse for deep repair or scrap."
@@ -184,6 +196,7 @@ def evaluate_defect_resolution(product: str, area_code: str, preferred_resolutio
         "repair_successful": repair_successful,
         "repair_reason": repair_reason,
         "route": route,
+        "warehouse": warehouse,
     }
 
 
@@ -230,7 +243,7 @@ def process_return(
     # season-wide heuristic only when the caller hasn't supplied one.
     resolved_suited = suited_climates if suited_climates else mock_data.suited_climates_for_season(season)
     climate = _climate_result(area, resolved_suited, product)
-    routing = decide_routing(demand, climate, area["name"], product)
+    routing = decide_routing(demand, climate, area, product)
 
     status = "routed_local" if routing["route"] == "local_warehouse" else "routed_hub"
     status_label = "Routed: Local Warehouse" if status == "routed_local" else "Routed: Central Hub"
