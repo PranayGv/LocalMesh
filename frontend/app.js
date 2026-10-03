@@ -9,7 +9,7 @@ let returns = [];
 let selectedId = null;
 let demandChart = null;
 let lastQueueFingerprint = "";
-let climateFilter = "All";
+let leafletMap = null;
 
 const ICONS = {
   classify: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
@@ -77,18 +77,11 @@ function seasonLabel(season) {
 }
 
 function renderQueueList() {
-  const filtered = climateFilter === "All" ? returns : returns.filter((r) => r.area_climate_zone === climateFilter);
   const hasReturns = returns.length > 0;
-  const hasFiltered = filtered.length > 0;
   emptyStateEl.hidden = hasReturns;
   queueListEl.hidden = !hasReturns;
 
-  if (hasReturns && !hasFiltered) {
-    queueListEl.innerHTML = `<p class="empty-filter">No returns from a ${climateFilter} climate zone yet.</p>`;
-    return;
-  }
-
-  queueListEl.innerHTML = filtered
+  queueListEl.innerHTML = returns
     .map((r) => {
       const meta = statusMeta(r.status);
       const active = r.id === selectedId ? "active" : "";
@@ -107,18 +100,6 @@ function renderQueueList() {
 
   queueListEl.querySelectorAll(".queue-row").forEach((row) => {
     row.addEventListener("click", () => selectReturn(row.dataset.id));
-  });
-}
-
-function initClimateFilter() {
-  const wrap = $("climate-filter");
-  if (!wrap) return;
-  wrap.querySelectorAll(".cf-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      climateFilter = btn.dataset.zone;
-      wrap.querySelectorAll(".cf-btn").forEach((b) => b.classList.toggle("on", b === btn));
-      renderQueueList();
-    });
   });
 }
 
@@ -169,6 +150,10 @@ function renderDetail(record) {
 
   if (record.dissatisfaction_branch) {
     drawDemandChart(record.dissatisfaction_branch.demand);
+    mountIndiaMap(record.dissatisfaction_branch.climate);
+  } else if (leafletMap) {
+    leafletMap.remove();
+    leafletMap = null;
   }
 }
 
@@ -326,8 +311,10 @@ function renderDissatisfaction(branch) {
   const { demand, climate, decision } = branch;
   return `
     <section class="panel">
-      ${renderDemandSection(demand)}
-      ${renderClimateSection(climate)}
+      <div class="dual-col">
+        ${renderDemandSection(demand)}
+        ${renderClimateSection(climate)}
+      </div>
       <div class="section-block">
         ${renderDecision(decision)}
       </div>
@@ -419,43 +406,63 @@ function tempColor(tempC, scale) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* India map                                                              */
+/* India map (Leaflet + OpenStreetMap — no API key required)             */
 /* ---------------------------------------------------------------------- */
 
-// Marker position (% from top-left) for each area, computed by equirectangular
-// projection against /images/india_map.png's documented bounds (Wikimedia
-// Commons "India location map.svg": N 37.5°, S 5.0°, W 67.0°, E 99.0°) —
-// x% = (lon-67)/32*100, y% = (37.5-lat)/32.5*100. Mirrors backend AREAS.
-const CITY_COORDS = {
-  RAJ: { x: 27.5, y: 32.6 }, // Jaipur
-  DEL: { x: 31.6, y: 27.1 }, // Delhi
-  BLR: { x: 33.1, y: 75.5 }, // Bengaluru
-  PUN: { x: 21.4, y: 58.4 }, // Pune
-  SHM: { x: 31.8, y: 19.7 }, // Shimla
-  MUM: { x: 18.4, y: 56.7 }, // Mumbai
-  CHE: { x: 41.5, y: 75.1 }, // Chennai
-  KOL: { x: 66.8, y: 45.9 }, // Kolkata
-  LKO: { x: 43.6, y: 32.8 }, // Lucknow
-  LEH: { x: 33.1, y: 10.3 }, // Leh
+// Real-world coordinates for each mock area. Mirrors backend AREAS.
+const CITY_LATLNG = {
+  RAJ: [26.9124, 75.7873], // Jaipur
+  DEL: [28.6139, 77.209], // Delhi
+  BLR: [12.9716, 77.5946], // Bengaluru
+  PUN: [18.5204, 73.8567], // Pune
+  SHM: [31.1048, 77.1734], // Shimla
+  MUM: [19.076, 72.8777], // Mumbai
+  CHE: [13.0827, 80.2707], // Chennai
+  KOL: [22.5726, 88.3639], // Kolkata
+  LKO: [26.8467, 80.9462], // Lucknow
+  LEH: [34.1526, 77.577], // Leh
 };
 
 function renderIndiaMap(climate) {
-  const coords = CITY_COORDS[climate.area_code];
-  if (!coords) return "";
-  const color = tempColor(climate.avg_temp_c, climate.temp_scale);
-  return `
-    <div class="india-map-wrap">
-      <img class="india-map-img" src="/images/india_map.png" alt="Map of India" />
-      <div class="india-marker" style="left:${coords.x}%; top:${coords.y}%;">
-        <span class="india-marker-dot" style="background:${color}; box-shadow:0 0 0 3px ${color}40;"></span>
-        <span class="india-marker-label">${climate.area_climate_zone === "Hot" ? "🔥" : climate.area_climate_zone === "Cold" ? "❄️" : ""} ${climate.avg_temp_c}&deg;C</span>
-      </div>
-    </div>
-    <p class="map-attribution">Map: <a href="https://commons.wikimedia.org/wiki/File:India_location_map.svg" target="_blank" rel="noopener">Uwe Dedering, Wikimedia Commons</a>, CC BY-SA 3.0</p>
-  `;
+  const latlng = CITY_LATLNG[climate.area_code];
+  if (!latlng) return "";
+  return `<div class="india-map-wrap"><div class="leaflet-map" id="leaflet-map"></div></div>`;
 }
 
-initClimateFilter();
+function mountIndiaMap(climate) {
+  const el = $("leaflet-map");
+  if (!el || typeof L === "undefined") return;
+  const latlng = CITY_LATLNG[climate.area_code];
+  if (!latlng) return;
+  const color = tempColor(climate.avg_temp_c, climate.temp_scale);
+
+  if (leafletMap) {
+    leafletMap.remove();
+    leafletMap = null;
+  }
+
+  leafletMap = L.map(el, { zoomControl: false, attributionControl: true, scrollWheelZoom: false }).setView(latlng, 6);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+  }).addTo(leafletMap);
+
+  const emoji = climate.area_climate_zone === "Hot" ? "🔥" : climate.area_climate_zone === "Cold" ? "❄️" : "";
+  L.circleMarker(latlng, {
+    radius: 9,
+    color: "#fff",
+    weight: 2,
+    fillColor: color,
+    fillOpacity: 1,
+  })
+    .addTo(leafletMap)
+    .bindTooltip(`${emoji} ${climate.avg_temp_c}&deg;C`, { permanent: true, direction: "top", offset: [0, -8] })
+    .openTooltip();
+
+  // Leaflet needs a size recalculation once its container is in the live DOM.
+  setTimeout(() => leafletMap && leafletMap.invalidateSize(), 0);
+}
+
 fetchQueue();
 setInterval(fetchQueue, 4000);
 
