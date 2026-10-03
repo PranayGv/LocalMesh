@@ -1,0 +1,207 @@
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --page-plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6;
+  --cat-2: #eb6834;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page-plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --cat-2: #d95926;
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page-plane);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+}
+
+header h1 {
+  margin: 24px 0 4px;
+  font-size: 1.6rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin: 0 0 24px;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 14px 0 6px;
+}
+
+label:first-of-type {
+  margin-top: 0;
+}
+
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--baseline);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  margin-top: 18px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--series-1);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: #e34948;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge-defect {
+  background: color-mix(in srgb, var(--cat-2) 16%, transparent);
+  color: var(--cat-2);
+}
+
+.badge-dissatisfaction {
+  background: color-mix(in srgb, var(--series-1) 16%, transparent);
+  color: var(--series-1);
+}
+
+.yesno {
+  font-weight: 700;
+}
+
+.yesno.yes {
+  color: var(--status-good);
+}
+
+.yesno.no {
+  color: var(--text-secondary);
+}
+
+.chart-wrap {
+  margin: 12px 0 4px;
+}
+
+.chart-caption {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.row-title {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.row-reason {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.decision-banner {
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+}
+
+.decision-banner.local-warehouse {
+  background: color-mix(in srgb, var(--status-good) 12%, var(--surface-1));
+}
+
+.decision-banner.central-hub {
+  background: color-mix(in srgb, var(--status-warning) 16%, var(--surface-1));
+}
+
+.decision-banner .route-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 0 0 4px;
+}
+
+.decision-banner p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.section-block + .section-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gridline);
+}
+
+.stub-card {
+  color: var(--text-secondary);
+}

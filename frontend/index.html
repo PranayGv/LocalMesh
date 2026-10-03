@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LocalMesh — Return Routing</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/vendor/chart.umd.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>LocalMesh</h1>
+      <p class="subtitle">Smart routing for returned products — local warehouse or central hub?</p>
+    </header>
+
+    <form id="review-form" class="card">
+      <label for="category">Product category</label>
+      <select id="category" required></select>
+
+      <label for="area">Return area</label>
+      <select id="area" required></select>
+
+      <label for="review_text">Describe the issue with your returned item</label>
+      <textarea id="review_text" rows="4" required
+        placeholder="e.g. The cooler works fine but it's too noisy for my bedroom."></textarea>
+
+      <button type="submit" id="submit-btn">Process Return</button>
+      <p id="form-error" class="error" hidden></p>
+    </form>
+
+    <section id="results" hidden></section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
