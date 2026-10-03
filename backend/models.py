@@ -99,9 +99,17 @@ class AreaOption(BaseModel):
     climate_zone: str
 
 
+class WarehouseOption(BaseModel):
+    code: str
+    name: str
+    area_code: str
+    area_name: str
+
+
 class MetaResponse(BaseModel):
     categories: list[CategoryOption]
     areas: list[AreaOption]
+    warehouses: list[WarehouseOption]
 
 
 class ReturnSubmission(BaseModel):
@@ -182,8 +190,15 @@ class ReturnRecord(BaseModel):
 class ReturnListItem(BaseModel):
     id: str
     product: str
+    area_code: str
     area_name: str
     area_climate_zone: str
     submitted_at: str
     status: ReturnStatus
     status_label: str
+    # Flattened from dissatisfaction_branch.decision.warehouse or
+    # defect_branch.warehouse (whichever applies) so a per-warehouse view
+    # (the localwarehouse admin tool) can filter the queue without fetching
+    # every record's full detail.
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None

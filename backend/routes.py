@@ -19,6 +19,7 @@ from backend.models import (
     ReturnListItem,
     ReturnRecord,
     ReturnSubmission,
+    WarehouseOption,
 )
 
 router = APIRouter()
@@ -36,6 +37,11 @@ def meta():
         areas=[
             AreaOption(code=a["code"], name=a["name"], pincode=a["pincode"], climate_zone=a["climate_zone"])
             for a in mock_data.AREAS
+        ],
+        warehouses=[
+            WarehouseOption(code=w["code"], name=w["name"], area_code=area["code"], area_name=area["name"])
+            for area in mock_data.AREAS
+            for w in mock_data.get_local_warehouses(area["code"])
         ],
     )
 
@@ -110,20 +116,40 @@ def submit_return(body: ReturnSubmission, request: Request):
     return record
 
 
+def _return_warehouse(r: ReturnRecord) -> tuple[str | None, str | None]:
+    """The specific LocalMesh warehouse this return ended up at, if any —
+    from whichever branch applies. None for central_hub/central_warehouse
+    routes, which never reach a specific local warehouse."""
+    warehouse = None
+    if r.dissatisfaction_branch is not None:
+        warehouse = r.dissatisfaction_branch.decision.warehouse
+    elif r.defect_branch is not None:
+        warehouse = r.defect_branch.warehouse
+    if warehouse is None:
+        return None, None
+    return warehouse.code, warehouse.name
+
+
 @router.get("/returns", response_model=list[ReturnListItem])
 def returns_queue():
-    return [
-        ReturnListItem(
-            id=r.id,
-            product=r.product,
-            area_name=r.area_name,
-            area_climate_zone=r.area_climate_zone,
-            submitted_at=r.submitted_at,
-            status=r.status,
-            status_label=r.status_label,
+    items = []
+    for r in returns_store.list_returns():
+        warehouse_code, warehouse_name = _return_warehouse(r)
+        items.append(
+            ReturnListItem(
+                id=r.id,
+                product=r.product,
+                area_code=r.area_code,
+                area_name=r.area_name,
+                area_climate_zone=r.area_climate_zone,
+                submitted_at=r.submitted_at,
+                status=r.status,
+                status_label=r.status_label,
+                warehouse_code=warehouse_code,
+                warehouse_name=warehouse_name,
+            )
         )
-        for r in returns_store.list_returns()
-    ]
+    return items
 
 
 @router.delete("/returns")

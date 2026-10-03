@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WareHub | Local Warehouse Administration</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem('warehub_theme')||'light'</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hd">
+  <b>WareHub</b>
+  <label class="whpick">Warehouse
+    <select id="whSelect" aria-label="Select local warehouse"><option>Loading…</option></select>
+  </label>
+  <button class="theme" id="themeBtn">Dark mode</button>
+  <button class="adm" id="admBtn" aria-haspopup="dialog">Admin: <b id="admName">—</b></button>
+  <a href="/shop/">Open SeasonMart store</a>
+  <a href="/">LocalMesh admin</a>
+</header>
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <button data-t="queue" class="on">Returns queue</button>
+  <button data-t="inv">Local stock</button>
+  <button data-t="rep">Repairs</button>
+  <button data-t="tr">Sent to central hub</button>
+  <button data-t="set">Settings</button>
+</nav>
+<section class="kp" id="kp"></section>
+<main id="view"></main>
+
+<dialog id="admDlg">
+  <form id="admForm">
+    <div class="dh"><h3>Admin profile</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>
+    <div class="who"><span class="av" id="admAv">A</span><div><b id="admTitle"></b><small id="admSub"></small></div></div>
+    <label>Name<input id="aName" required></label>
+    <label>Role<select id="aRole"><option>Warehouse manager</option><option>Supervisor</option><option>Inventory staff</option></select></label>
+    <label>Warehouse<input id="aWh" readonly></label>
+    <label>Shift<select id="aShift"><option>Morning (6 am to 2 pm)</option><option>Evening (2 pm to 10 pm)</option><option>Night (10 pm to 6 am)</option></select></label>
+    <div class="dact"><button type="submit" class="btn p1">Save profile</button></div>
+    <h4>This warehouse, at a glance</h4>
+    <div class="stats" id="aStats"></div>
+    <div class="dact"><button type="button" class="btn" id="aCsv">Download this warehouse's report (CSV)</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
