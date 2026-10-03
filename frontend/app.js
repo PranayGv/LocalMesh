@@ -265,7 +265,7 @@ function renderDemandSection(demand) {
       <p class="panel-title">${ICONS.chart} Recent Demand
         <span class="status-pill ${demand.has_demand ? "yes" : "no"}">Demand: ${demand.has_demand ? "Yes" : "No"}</span>
       </p>
-      <div class="chart-wrap"><canvas id="demand-chart" height="150"></canvas></div>
+      <div class="chart-wrap"><canvas id="demand-chart"></canvas></div>
       <div class="stat-grid">${tiles}</div>
       <p class="reason-text">${demand.reason}</p>
     </div>
@@ -326,8 +326,10 @@ function renderDissatisfaction(branch) {
   const { demand, climate, decision } = branch;
   return `
     <section class="panel">
-      ${renderDemandSection(demand)}
-      ${renderClimateSection(climate)}
+      <div class="insight-grid">
+        ${renderDemandSection(demand)}
+        ${renderClimateSection(climate)}
+      </div>
       <div class="section-block">
         ${renderDecision(decision)}
       </div>
@@ -374,6 +376,7 @@ function drawDemandChart(demand) {
     },
     options: {
       animation: false,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       interaction: { intersect: false, mode: "index" },
       scales: {

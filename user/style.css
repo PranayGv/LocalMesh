@@ -58,16 +58,32 @@ button { cursor: pointer; color: inherit; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; padding: .4rem 1.4rem 1.4rem; }
 .shop-layout { display: flex; align-items: flex-start; gap: 1rem; padding: 0 1.4rem 1.4rem; }
 .shop-layout .grid { flex: 1; min-width: 0; padding: 0; }
-.ad-rail { width: 240px; flex: none; }
-.ad-card { position: sticky; top: .8rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: .9rem; }
-.ad-card h4 { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin-bottom: .6rem; }
-.ad-item { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem 0; border-top: 1px solid var(--line); font-size: .86rem; }
+.ad-rail { width: 260px; flex: none; }
+.ad-card { position: sticky; top: .8rem; border: 1px dashed var(--org); border-radius: 10px; background: var(--ban); padding: .9rem; }
+.ad-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .55rem; }
+.ad-flag { font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #fff; background: var(--org); padding: .18rem .55rem; border-radius: 3px; }
+.ad-disclosure { font-size: .72rem; color: var(--mute); cursor: help; }
+.ad-card h4 { font-size: .84rem; font-weight: 700; color: var(--ink); margin-bottom: .7rem; }
+.ad-items { display: flex; flex-direction: column; }
+.ad-item { position: relative; display: flex; flex-direction: column; gap: .3rem; padding: .75rem 0; border-top: 1px dashed var(--line); }
 .ad-item:first-of-type { border-top: 0; padding-top: 0; }
-.ad-item span { color: var(--teal); font-weight: 600; white-space: nowrap; }
+.ad-tag { position: absolute; top: .75rem; right: 0; font-size: .62rem; font-weight: 700; color: var(--mute); border: 1px solid var(--mute); border-radius: 3px; padding: 0 .3rem; text-transform: uppercase; letter-spacing: .03em; }
+.ad-item:first-of-type .ad-tag { top: 0; }
+.ad-ph { aspect-ratio: 3/2; background: var(--surface); border-radius: 6px; display: grid; place-items: center; color: var(--mute); font-size: .78rem; text-align: center; padding: .5rem; }
+.ad-name { font-size: .88rem; font-weight: 600; padding-right: 2rem; }
+.ad-stars { color: #d98e04; font-size: .78rem; }
+.ad-stars i { font-style: normal; color: var(--mute); margin-left: .25rem; }
+.ad-price { font-size: 1.05rem; font-weight: 700; display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
+.ad-price s { font-size: .74rem; font-weight: 400; color: var(--mute); }
+.ad-off { font-size: .72rem; font-weight: 700; color: var(--red); }
+.ad-del { font-size: .8rem; color: var(--ok); }
+.ad-buy { width: 100%; margin-top: .2rem; padding: .45rem; font-size: .84rem; }
 @media (max-width: 920px) {
   .shop-layout { flex-direction: column; }
   .ad-rail { width: 100%; }
   .ad-card { position: static; }
+  .ad-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .8rem; }
+  .ad-item { border-top: 0; padding: 0; }
 }
 .obw { background: var(--surface); border-top: 1px solid var(--line); }
 .card { border: 1px solid var(--line); border-radius: 10px; padding: .7rem; background: var(--card); display: flex; flex-direction: column; transition: all .2s ease; }

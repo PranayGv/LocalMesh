@@ -243,7 +243,25 @@ function renderGrid(){
 }
 
 // Right-rail "advertisement" — product picks matched to the shopper's
-// selected season, e.g. coolers and fans surface for summer.
+// selected season, e.g. coolers and fans surface for summer. Styled like a
+// real sponsored-placement rail (Amazon/Flipkart-style): a clear "Sponsored"
+// flag plus an "Ad" tag on every item, but still carrying the same depth of
+// info as a real product card (rating, price, delivery) rather than a bare
+// name-and-price strip.
+function adItem(p){
+  const inStock=LOCAL_STOCK.has(p.n);
+  const delivery=inStock?'⚡ In stock — local warehouse':(p.km?'Ships from '+p.km+' km away':'Free delivery by '+eta());
+  const st=Math.round(p.r);
+  return `<article class="ad-item">
+    <span class="ad-tag" title="This is a paid placement">Ad</span>
+    <div class="ad-ph"><span>${p.n}</span></div>
+    <b class="ad-name">${p.n}</b>
+    <div class="ad-stars">${'★'.repeat(st)+'☆'.repeat(5-st)}<i>(${p.c.toLocaleString('en-IN')})</i></div>
+    <div class="ad-price">${inr(p.p)}<s>${inr(p.m)}</s><span class="ad-off">${off(p)}% off</span></div>
+    <div class="ad-del">${delivery}</div>
+    <button class="btn buy ad-buy" data-buy="${p.id}">Buy now</button>
+  </article>`;
+}
 function renderAds(){
   const rail=$('#adRail');
   if(!rail)return;
@@ -251,8 +269,12 @@ function renderAds(){
   const adCat=SEASON_AD_CAT[season]||'cool';
   const picks=P.filter(p=>p.cat===adCat&&p.cond===undefined).sort((a,b)=>b.r-a.r).slice(0,4);
   rail.innerHTML=`<div class="ad-card">
-    <h4>Sponsored &middot; Built for ${SEASON_LABEL[season]||'the season'}</h4>
-    ${picks.map(p=>`<div class="ad-item"><b>${p.n}</b><span>${inr(p.p)}</span></div>`).join('')}
+    <div class="ad-head">
+      <span class="ad-flag">Sponsored</span>
+      <span class="ad-disclosure" title="Sponsored placements are chosen for the season you've selected, not your browsing history.">Why this ad? ⓘ</span>
+    </div>
+    <h4>Built for ${SEASON_LABEL[season]||'the season'}</h4>
+    <div class="ad-items">${picks.map(adItem).join('')}</div>
   </div>`;
 }
 
