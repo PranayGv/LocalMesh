@@ -236,6 +236,39 @@ body {
   color: var(--text-muted);
 }
 
+.loc-picker {
+  display: block;
+  margin-top: 10px;
+}
+
+.loc-picker span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.loc-picker select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 6px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--text-primary);
+}
+
+.empty-filter {
+  padding: 24px 18px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .zone-tag {
   display: inline-block;
   font-size: 0.68rem;

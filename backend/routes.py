@@ -113,6 +113,7 @@ def returns_queue():
         ReturnListItem(
             id=r.id,
             product=r.product,
+            area_code=r.area_code,
             area_name=r.area_name,
             area_climate_zone=r.area_climate_zone,
             submitted_at=r.submitted_at,

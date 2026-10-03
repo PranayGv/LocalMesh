@@ -21,6 +21,15 @@ button,input{font:inherit}button{cursor:pointer}
 .hd span{font-size:.85rem;color:#bcd3d0}
 .theme{background:none;border:1px solid #5d8a87;color:#fff;border-radius:6px;padding:.2rem .7rem;font-size:.85rem}
 
+.loc-picker{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:#bcd3d0}
+.loc-picker span{white-space:nowrap}
+.loc-picker select{font:inherit;font-size:.82rem;padding:.3rem .6rem;border-radius:6px;border:1px solid #5d8a87;background:#0e2e2e;color:#fff}
+
+/* --- View toggle (Activity / Inventory) --- */
+.viewtabs{display:flex;gap:.3rem;padding:0 1.2rem;margin-top:.6rem}
+.viewtabs button{background:none;border:1px solid var(--line);padding:.35rem 1rem;border-radius:99px;color:var(--mute);font-weight:600;font-size:.82rem}
+.viewtabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+
 /* --- KPI row --- */
 .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem 1.2rem .3rem}
 .k{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem}
@@ -29,8 +38,30 @@ button,input{font:inherit}button{cursor:pointer}
 .k small.sub{margin-top:.1rem}
 
 /* --- Layout: activity pane + decision pane --- */
-.layout{display:grid;grid-template-columns:340px 1fr;flex:1;min-height:0;margin:0 1.2rem 1.5rem;gap:1rem}
+.layout{display:grid;grid-template-columns:340px 1fr;flex:1;min-height:0;margin:.8rem 1.2rem 1.5rem;gap:1rem}
+.layout[hidden]{display:none}
 @media (max-width:860px){.layout{grid-template-columns:1fr}}
+
+/* --- Inventory view --- */
+.inv-wrap{margin:.8rem 1.2rem 1.5rem}
+.flt{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem;align-items:center}
+.flt input[type=search],.flt select{padding:.4rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.flt input[type=search]{flex:1;min-width:160px}
+.flt label{font-size:.85rem;display:flex;gap:.3rem;align-items:center;color:var(--mute)}
+.sc{overflow-x:auto}
+.tall{max-height:65vh;overflow:auto}
+.tall th{position:sticky;top:0;background:var(--panel);z-index:1}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-weight:600;color:var(--mute);padding:.4rem .5rem;border-bottom:1px solid var(--line);font-size:.76rem;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+td{padding:.5rem;border-bottom:1px solid var(--line);vertical-align:middle}
+.empty-cell{color:var(--mute);text-align:center;padding:1.5rem 0}
+.qb{display:inline-flex;align-items:center;gap:.4rem}
+.qb button{width:24px;height:24px;border:1px solid var(--line);background:var(--panel);border-radius:50%;line-height:1;color:var(--ink)}
+.t{display:inline-block;padding:.05rem .6rem;border-radius:99px;font-size:.78rem;white-space:nowrap}
+.t.ok{background:var(--green-soft);color:var(--green)}
+.t.wn{background:#fdeadb;color:var(--org)}
+.t.bad{background:var(--maroon-soft);color:var(--maroon)}
+.t.s{background:#e1f0ee;color:var(--teal)}
 
 .queue-pane{border:1px solid var(--line);background:var(--panel-alt);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 .pane-head{padding:.9rem 1rem .6rem;border-bottom:1px solid var(--line)}
@@ -127,3 +158,10 @@ dialog label{display:block;margin:.4rem 0}
 [data-theme=dark] .toast{background:#2a4a4d}
 [data-theme=dark] dialog::backdrop{background:rgba(0,0,0,.65)}
 [data-theme=dark] dialog{background:#15262a;color:var(--ink)}
+[data-theme=dark] .viewtabs button{color:#c5d6d6}
+[data-theme=dark] .viewtabs button.on{color:#fff}
+[data-theme=dark] .flt input[type=search],[data-theme=dark] .flt select,[data-theme=dark] .qb button{background:#0f1c1e;color:var(--ink);border-color:#3a5558}
+[data-theme=dark] .t.ok{background:#12413a;color:#8fe0cc}
+[data-theme=dark] .t.wn{background:#4a3a14;color:#f3d28a}
+[data-theme=dark] .t.bad{background:#4a2420;color:#ffb4a6}
+[data-theme=dark] .t.s{background:#1b3a55;color:#a9d3f5}

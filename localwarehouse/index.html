@@ -10,19 +10,45 @@
 <body>
 <header class="hd">
   <b>WareHub</b>
-  <span id="whName">Chennai Local Warehouse</span>
+  <label class="loc-picker">
+    <span>Active warehouse</span>
+    <select id="whSel"></select>
+  </label>
   <button class="theme" id="themeBtn">Dark mode</button>
 </header>
 <section class="kp" id="kp"></section>
-<main class="layout">
+<nav class="viewtabs" id="viewTabs">
+  <button data-v="act" class="on">Activity</button>
+  <button data-v="inv">Inventory</button>
+</nav>
+<main class="layout" id="actView">
   <aside class="queue-pane">
     <div class="pane-head">
-      <h2>Activity in this warehouse</h2>
-      <span class="pane-hint">Returns, repairs and central hub transfers</span>
+      <h2 id="actTitle">Activity in this warehouse</h2>
+      <span class="pane-hint" id="actHint">Returns, repairs and central hub transfers</span>
     </div>
     <div class="queue-list" id="actList"></div>
   </aside>
   <section class="detail-pane" id="detail"></section>
+</main>
+<main class="inv-wrap" id="invView" hidden>
+  <section class="panel">
+    <h4 class="panel-title" id="invTitle">Inventory</h4>
+    <div class="flt">
+      <input type="search" id="invQ" placeholder="Search product, SKU or category">
+      <select id="invS" aria-label="Filter by season">
+        <option value="all">All seasons</option>
+        <option value="summer">Summer</option>
+        <option value="monsoon">Monsoon</option>
+        <option value="winter">Winter</option>
+      </select>
+      <label><input type="checkbox" id="invLow"> Low stock only</label>
+    </div>
+    <div class="sc tall"><table>
+      <thead><tr><th>SKU</th><th>Product</th><th>Origin</th><th>Season</th><th>Category</th><th>Price</th><th>In stock</th><th>Status</th></tr></thead>
+      <tbody id="invBody"></tbody>
+    </table></div>
+  </section>
 </main>
 
 <dialog id="ovDlg">

@@ -10,6 +10,22 @@ let selectedId = null;
 let demandChart = null;
 let lastQueueFingerprint = "";
 let leafletMap = null;
+let activeLocation = localStorage.getItem("lmwms_location") || "ALL";
+
+// Mirrors backend mock_data.AREAS — the warehouse locations this terminal
+// can be scoped to, plus the synthetic "Central Warehouse" hub.
+const AREAS = [
+  { code: "RAJ", name: "Jaipur" },
+  { code: "DEL", name: "Delhi" },
+  { code: "BLR", name: "Bengaluru" },
+  { code: "PUN", name: "Pune" },
+  { code: "SHM", name: "Shimla" },
+  { code: "MUM", name: "Mumbai" },
+  { code: "CHE", name: "Chennai" },
+  { code: "KOL", name: "Kolkata" },
+  { code: "LKO", name: "Lucknow" },
+  { code: "LEH", name: "Leh" },
+];
 
 const ICONS = {
   classify: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
@@ -45,14 +61,45 @@ async function fetchQueue() {
   }
 }
 
+// Scope the queue to the active warehouse: a specific location shows only
+// its own returns; "Central Warehouse" shows whatever every location has
+// routed to the hub; "All locations" is unfiltered.
+function returnsInScope() {
+  if (activeLocation === "ALL") return returns;
+  if (activeLocation === "CENTRAL") return returns.filter((r) => r.status === "routed_hub" || r.status === "defect_hub");
+  return returns.filter((r) => r.area_code === activeLocation);
+}
+
 function renderStats() {
-  const local = returns.filter((r) => r.status === "routed_local").length;
-  const hub = returns.filter((r) => r.status === "routed_hub").length;
-  const defect = returns.filter((r) => r.status === "defect_repaired" || r.status === "defect_hub").length;
-  $("stat-queue").textContent = returns.length;
+  const scoped = returnsInScope();
+  const local = scoped.filter((r) => r.status === "routed_local").length;
+  const hub = scoped.filter((r) => r.status === "routed_hub").length;
+  const defect = scoped.filter((r) => r.status === "defect_repaired" || r.status === "defect_hub").length;
+  $("stat-queue").textContent = scoped.length;
   $("stat-local").textContent = local;
   $("stat-hub").textContent = hub;
   $("stat-defect").textContent = defect;
+}
+
+function initLocationPicker() {
+  const sel = $("loc-select");
+  if (!sel) return;
+  const localGroup = document.createElement("optgroup");
+  localGroup.label = "Local warehouses";
+  AREAS.forEach((a) => {
+    const opt = document.createElement("option");
+    opt.value = a.code;
+    opt.textContent = a.name;
+    localGroup.appendChild(opt);
+  });
+  sel.appendChild(localGroup);
+  sel.value = activeLocation;
+  sel.addEventListener("change", () => {
+    activeLocation = sel.value;
+    localStorage.setItem("lmwms_location", activeLocation);
+    renderQueueList();
+    renderStats();
+  });
 }
 
 function statusMeta(status) {
@@ -77,11 +124,18 @@ function seasonLabel(season) {
 }
 
 function renderQueueList() {
+  const scoped = returnsInScope();
   const hasReturns = returns.length > 0;
+  const hasScoped = scoped.length > 0;
   emptyStateEl.hidden = hasReturns;
   queueListEl.hidden = !hasReturns;
 
-  queueListEl.innerHTML = returns
+  if (hasReturns && !hasScoped) {
+    queueListEl.innerHTML = `<p class="empty-filter">No returns for this warehouse yet.</p>`;
+    return;
+  }
+
+  queueListEl.innerHTML = scoped
     .map((r) => {
       const meta = statusMeta(r.status);
       const active = r.id === selectedId ? "active" : "";
@@ -463,6 +517,7 @@ function mountIndiaMap(climate) {
   setTimeout(() => leafletMap && leafletMap.invalidateSize(), 0);
 }
 
+initLocationPicker();
 fetchQueue();
 setInterval(fetchQueue, 4000);
 

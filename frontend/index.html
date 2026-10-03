@@ -48,6 +48,13 @@
         <div class="pane-head">
           <h2>Returns Queue</h2>
           <span class="pane-hint">Fed by the SeasonMart storefront</span>
+          <label class="loc-picker">
+            <span>Active warehouse</span>
+            <select id="loc-select">
+              <option value="ALL">All locations</option>
+              <option value="CENTRAL">Central Warehouse (Hub)</option>
+            </select>
+          </label>
           <button class="clear-queue-btn" id="clear-queue" title="Clear all returns from queue">Clear Queue</button>
         </div>
         <div class="queue-list" id="queue-list"></div>

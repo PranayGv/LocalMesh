@@ -134,6 +134,7 @@ class ReturnRecord(BaseModel):
 class ReturnListItem(BaseModel):
     id: str
     product: str
+    area_code: str
     area_name: str
     area_climate_zone: str
     submitted_at: str
