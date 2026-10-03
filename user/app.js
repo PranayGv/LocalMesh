@@ -188,8 +188,11 @@ const off=p=>Math.round(100-p.p/p.m*100);
 // Cumulative units sold per product id this session — the catalog's `left`
 // field is the starting stock; actual remaining stock is `left` minus this,
 // so "Buy now" actually depletes stock instead of leaving the counter frozen.
-let STOCK_SOLD=load('seasonmart_stock_sold',{});
-const effectiveStock=p=>Math.max(0,p.left-(STOCK_SOLD[p.id]||0));
+// Read fresh from localStorage on every call (not cached in a module
+// variable) so a purchase made in another tab is reflected immediately,
+// instead of this tab working off a stale snapshot from page load.
+const getStockSold=()=>load('seasonmart_stock_sold',{});
+const effectiveStock=p=>Math.max(0,p.left-(getStockSold()[p.id]||0));
 let cat='all',query='',retId=null,chip='',CITIES=[],LOCAL_STOCK=new Set(),lastStockFingerprint='';
 let retStep='review',chosenResolution=null;
 const eta=()=>{const d=new Date();d.setDate(d.getDate()+3);return d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})};
@@ -208,12 +211,17 @@ function card(p){
   const st=Math.round(p.r);
   const inStock=LOCAL_STOCK.has(p.n);
   const stock=effectiveStock(p);
-  const outOfStock=stock<=0;
+  // A depleted catalog count doesn't mean the item is unavailable: LocalMesh
+  // may have already routed a returned unit of it to a nearby warehouse, in
+  // which case it's still purchasable (and should say so), not a "search
+  // local shops" case.
+  const outOfStock=stock<=0&&!inStock;
   const delivery=inStock?'<span class="instock">⚡ In stock — local warehouse</span>':(p.km?'Ships from '+p.km+' km away':'Free delivery by '+eta());
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
   const actions=outOfStock
     ?`<button class="btn find-local" data-findlocal="${p.id}">🔎 Search local shops</button>`
     :`<button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button>`;
+  const lowLine=outOfStock?'Out of stock':(stock<=6&&!inStock?'Only '+stock+' left in stock':'');
   return `<article class="card${inStock?' local-stock':''}${outOfStock?' out-of-stock':''}">
     <div class="ph"><span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
     <h3>${p.n}</h3>
@@ -221,7 +229,7 @@ function card(p){
     <div class="stars">${'★'.repeat(st)+'☆'.repeat(5-st)}<i>${p.r} (${p.c.toLocaleString('en-IN')})</i></div>
     <div class="price">${inr(p.p)}<s>${inr(p.m)}</s></div>
     <div class="del">${outOfStock?'':delivery}</div>
-    <div class="low">${outOfStock?'Out of stock':(stock<=6?'Only '+stock+' left in stock':'')}</div>
+    <div class="low">${lowLine}</div>
     <div class="acts${outOfStock?' single':''}">${actions}</div>
   </article>`;
 }
@@ -319,7 +327,22 @@ function renderCart(){
     <button class="btn ghost" style="width:100%;margin-top:.4rem" data-clear-cart>Clear cart</button>`
    :'<p class="empty">Your cart is empty. Add something to get started.</p>';
 }
-function addCart(id,n=1){const c=cart(),x=c.find(i=>i.id===id);x?x.q+=n:c.push({id,q:n});save('seasonmart_cart',c.filter(i=>i.q>0));renderCart()}
+function addCart(id,n=1){
+  const p=P[id];if(!p)return false;
+  // Mirrors placeOrder's stock rule: locally-routed units are uncapped,
+  // everything else can't be added past what's actually left — otherwise
+  // the cart's "+" silently let quantity drift past real stock, only to be
+  // quietly clamped (or dropped) once the customer finally checked out.
+  const cap=LOCAL_STOCK.has(p.n)?Infinity:effectiveStock(p);
+  const c=cart(),x=c.find(i=>i.id===id);
+  const current=x?x.q:0;
+  const clamped=Math.max(0,Math.min(current+n,cap));
+  if(n>0&&clamped<=current){toast('No more in stock.');return false}
+  if(x)x.q=clamped;else if(clamped>0)c.push({id,q:clamped});
+  save('seasonmart_cart',c.filter(i=>i.q>0));
+  renderCart();
+  return true;
+}
 
 function renderOrders(){
   const o=load('seasonmart_orders',[]);
@@ -331,24 +354,32 @@ function renderOrders(){
 }
 function placeOrder(items){
   const o=load('seasonmart_orders',[]);
+  const sold=getStockSold();
   let placedQty=0,skipped=false;
+  const placedIds=new Set();
   items.forEach((x,i)=>{
     const p=P[x.id];
-    const qty=Math.min(x.q,effectiveStock(p));
+    // A locally-routed unit (LOCAL_STOCK) isn't counted in the catalog's
+    // depletable stock pool, so it's never capped by stock on hand —
+    // consistent with card() always offering Buy now for it.
+    const remaining=Math.max(0,p.left-(sold[p.id]||0));
+    const qty=LOCAL_STOCK.has(p.n)?x.q:Math.min(x.q,remaining);
     if(qty<=0){skipped=true;return}
     if(qty<x.q)skipped=true;
     o.push({uid:Date.now()+i,pid:p.id,n:p.n,p:p.p,q:qty,cat:p.cat,cl:p.cl,returned:false});
-    STOCK_SOLD[p.id]=(STOCK_SOLD[p.id]||0)+qty;
+    sold[p.id]=(sold[p.id]||0)+qty;
     placedQty+=qty;
+    placedIds.add(x.id);
   });
   save('seasonmart_orders',o);
-  save('seasonmart_stock_sold',STOCK_SOLD);
+  save('seasonmart_stock_sold',sold);
   if(placedQty>0){
     toast(skipped?'Order placed for what was in stock. Delivery by '+eta()+'.':'Order placed. Delivery by '+eta()+'.');
     renderGrid();
   }else{
     toast('Sorry, that item just went out of stock.');
   }
+  return placedIds;
 }
 
 async function loadCities(){
@@ -466,19 +497,25 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('button')||e.target,d=t.dataset||{};
   if(d.cat){cat=d.cat;query='';$('#q').value='';renderGrid();return}
   if(d.close!==undefined)t.closest('dialog').close();
-  if(d.add){addCart(+d.add);toast('Added to cart.')}
+  if(d.add){if(addCart(+d.add))toast('Added to cart.')}
   if(d.buy){placeOrder([{id:+d.buy,q:1}])}
   if(d.inc)addCart(+d.inc);
   if(d.dec)addCart(+d.dec,-1);
   if(d.rm){save('seasonmart_cart',cart().filter(i=>i.id!==+d.rm));renderCart()}
-  if(t.hasAttribute&&t.hasAttribute('data-place')){placeOrder(cart());save('seasonmart_cart',[]);renderCart();$('#cartDlg').close()}
+  if(t.hasAttribute&&t.hasAttribute('data-place')){
+    const placedIds=placeOrder(cart());
+    const remaining=cart().filter(x=>!placedIds.has(x.id));
+    save('seasonmart_cart',remaining);
+    renderCart();
+    if(remaining.length===0)$('#cartDlg').close();
+  }
   if(t.hasAttribute&&t.hasAttribute('data-clear-cart')){
     if(cart().length&&confirm('Empty your cart?')){save('seasonmart_cart',[]);renderCart();toast('Cart cleared.')}
   }
   if(t.hasAttribute&&t.hasAttribute('data-clear-orders')){
     if(confirm('Clear all orders and return history? This cannot be undone.')){
       localStorage.removeItem('seasonmart_orders');localStorage.removeItem('seasonmart_returns');
-      localStorage.removeItem('seasonmart_stock_sold');STOCK_SOLD={};
+      localStorage.removeItem('seasonmart_stock_sold');
       renderOrders();renderGrid();toast('Orders and returns cleared.');
     }
   }
@@ -513,6 +550,12 @@ document.addEventListener('click',e=>{
     $('#resErr').hidden=true;
   }
 });
+// Closing the dialog early (Escape, the × button, or mid-animation) must
+// invalidate the in-flight searching/contacting sequence — otherwise a
+// cancelled search still fires its POST to /api/local-sourcing after the
+// dialog is gone, leaving a phantom "Contacted Local Service" entry in the
+// LocalMesh admin queue for a request the customer never completed.
+$('#localDlg').addEventListener('close',()=>{localSearchToken++});
 $('#cartBtn').onclick=()=>{renderCart();$('#cartDlg').showModal()};
 $('#ordBtn').onclick=()=>{renderOrders();$('#ordDlg').showModal()};
 $('#locBtn').onclick=()=>{renderProfile();$('#profDlg').showModal()};

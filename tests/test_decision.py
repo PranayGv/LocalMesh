@@ -24,21 +24,27 @@ def test_climate_fit_without_demand():
 
 
 def test_central_hub_when_no_demand_and_no_climate_fit():
+    from backend import mock_data
+
     demand = decision.evaluate_demand("RAJ", "HEATER")
     climate = decision.evaluate_climate_fit("RAJ", "HEATER")
     assert demand["has_demand"] is False
     assert climate["is_climate_fit"] is False
 
-    routing = decision.decide_routing(demand, climate, "Jaipur", "Heater")
+    routing = decision.decide_routing(demand, climate, mock_data.get_area("RAJ"), "Heater")
     assert routing["route"] == "central_hub"
+    assert routing["warehouse"] is None
 
 
 def test_routing_prefers_demand_over_climate():
+    from backend import mock_data
+
     demand = decision.evaluate_demand("RAJ", "COOLER")
     climate = decision.evaluate_climate_fit("RAJ", "COOLER")
-    routing = decision.decide_routing(demand, climate, "Jaipur", "Cooler")
+    routing = decision.decide_routing(demand, climate, mock_data.get_area("RAJ"), "Cooler")
     assert routing["route"] == "local_warehouse"
     assert routing["driver"] == "demand"
+    assert routing["warehouse"]["code"].startswith("RAJ-")
 
 
 def test_unseen_combo_falls_back_to_default_history():

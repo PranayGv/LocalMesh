@@ -180,6 +180,33 @@ HARDWARE_DEFECT = [
     "Clothes drying stand central rivet snapped, whole rack collapsed.",
     "Moisturising body lotion bottle arrived cracked down the seam, lotion leaked everywhere.",
     "Petroleum jelly tub arrived with shattered lid, glass shards mixed in product.",
+    # "Praise clause + but/though/although + real defect" — without these,
+    # the model can latch onto "but"/"however" as a shortcut for
+    # dissatisfaction, which wrongly flips genuine defects that happen to
+    # open with a compliment about looks, price, or brand.
+    "The jacket looks great, but the zipper teeth are already falling apart.",
+    "Design is nice, but the fan motor burns out within minutes of use.",
+    "I liked the color, but the heater's thermostat is completely unresponsive.",
+    "The price was good, but the cooler pump doesn't draw any water at all.",
+    "It looked sturdy in photos, but the frame snapped the first time I used it.",
+    "Though the styling is nice, the stitching came apart within a day.",
+    "Even though the brand is reputable, this unit arrived with a cracked housing.",
+    "The straps are comfortable, but the buckle hardware is already broken.",
+    "Setup was easy, but the device won't power on no matter what I try.",
+    "The fabric feels premium, but there's a large tear along the seam.",
+    "I expected good build quality, but the hinge snapped on the second use.",
+    "The remote looks sleek, but none of the buttons actually respond.",
+    "Delivery was fast, but the item arrived with a shattered display panel.",
+    "The brand is well known, but this particular unit sparks when plugged in.",
+    "It's lightweight as advertised, but the handle cracked after one trip.",
+    # Rebalancing: the dissatisfaction examples below reuse "thermostat",
+    # "sun hat", and "sleeveless dress" vocabulary heavily enough to pull
+    # those words' TF-IDF weight toward dissatisfaction, which started
+    # flipping real defects sharing the same nouns — these restore the
+    # defect side's representation for those specific items.
+    "Smart thermostat keeps resetting itself and loses all programmed schedules within a day, clearly faulty firmware.",
+    "The sun hat's stitching unravels along the brim after a single wear, clearly defective fabric.",
+    "Sleeveless summer dress zipper detached from the fabric on the first wear, a clear manufacturing fault.",
 ]
 
 PERSONAL_DISSATISFACTION = [
@@ -354,6 +381,30 @@ PERSONAL_DISSATISFACTION = [
     "Lip balm with SPF is moisturizing, but the peppermint flavor is stronger than I like.",
     "Deep moisture cold cream works nicely, but the texture is too rich for my combination skin.",
     "Petroleum jelly is perfectly fine, but I accidentally bought a pack of two instead of one.",
+    # More "functional praise + but/though/although/however + preference"
+    # examples, varying the conjunction and where the praise sits in the
+    # sentence, so the classifier generalizes past the exact phrasing above
+    # rather than memorizing a narrow template.
+    "The fan runs quietly and smoothly, but I decided a smaller model suits my desk better.",
+    "This jacket keeps me warm as expected, but the color washed out more than I'd like.",
+    "The cooler performs well, but I realized my room doesn't really need one this year.",
+    "Heater works exactly as described, but it's a bit too tall for my shelf.",
+    "The umbrella opens and closes fine, but I prefer a brighter color for visibility.",
+    "This vacuum picks up dust just fine, but I already have a similar one at home.",
+    "The sunglasses are comfortable and well made, but the tint is darker than I expected.",
+    "Though it functions properly, I find the design too plain for my taste.",
+    "Although the heater warms the room fine, I'd rather have a model with a timer.",
+    "Even though it works as advertised, I changed my mind about needing it.",
+    "The blanket is warm and works great, however the size is smaller than I need.",
+    "Everything about this fan works correctly, however I prefer oscillating models.",
+    "The watch strap is sturdy and the device works fine, but I wanted a metal band instead.",
+    "This bottle keeps drinks cold as promised, but it doesn't fit my bag's side pocket.",
+    "The dress fits and looks nice, but it's not quite the occasion I needed it for.",
+    "Air purifier runs quietly and filters well, but the footprint is bigger than my room allows.",
+    "The gloves keep my hands warm just fine, but the fit is snugger than I like.",
+    "Everything works as expected with this cooler, but I found a quieter model for less.",
+    "The scarf is soft and warm, but it's not quite the pattern I was hoping for.",
+    "This diffuser mists consistently and works well, but the scent options don't suit me.",
 ]
 
 TRAINING_DATA = [(text, "hardware_defect") for text in HARDWARE_DEFECT] + [
