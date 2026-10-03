@@ -121,6 +121,47 @@ class ReturnSubmission(BaseModel):
 ReturnStatus = Literal["defect_repaired", "defect_hub", "routed_local", "routed_hub"]
 
 
+# --- Local-shop sourcing: a customer asked LocalMesh to find an out-of-stock
+# storefront item at a nearby partner shop instead of waiting for restock. ---
+
+
+class LocalSourcingSubmission(BaseModel):
+    product: str = Field(min_length=1)
+    pincode: Optional[str] = ""
+    qty: int = Field(default=1, ge=1)
+
+
+SourcingStatus = Literal["contacted_local_service"]
+
+
+class LocalSourcingRecord(BaseModel):
+    id: str
+    submitted_at: str
+    product: str
+    qty: int
+    pincode: Optional[str] = None
+    area_code: str
+    area_name: str
+    area_climate_zone: str
+    shop_name: str
+    eta_days: int
+    status: SourcingStatus = "contacted_local_service"
+    status_label: str = "Contacted Local Service"
+
+
+class LocalSourcingListItem(BaseModel):
+    id: str
+    product: str
+    qty: int
+    area_name: str
+    area_climate_zone: str
+    shop_name: str
+    eta_days: int
+    submitted_at: str
+    status: SourcingStatus = "contacted_local_service"
+    status_label: str = "Contacted Local Service"
+
+
 class ReturnRecord(BaseModel):
     id: str
     submitted_at: str

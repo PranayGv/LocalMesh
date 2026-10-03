@@ -6,7 +6,9 @@ const detailPlaceholder = $("detail-placeholder");
 const detailContent = $("detail-content");
 
 let returns = [];
+let sourcing = [];
 let selectedId = null;
+let selectedKind = null;
 let demandChart = null;
 let lastQueueFingerprint = "";
 let climateFilter = "All";
@@ -19,6 +21,7 @@ const ICONS = {
   warehouse: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg>`,
   hub: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>`,
   review: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
+  store: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 20v-6h6v6"/></svg>`,
 };
 
 function cssVar(name) {
@@ -31,10 +34,10 @@ function cssVar(name) {
 
 async function fetchQueue() {
   try {
-    const res = await fetch("/api/returns");
-    if (!res.ok) return;
-    returns = await res.json();
-    const fingerprint = JSON.stringify(returns.map((r) => [r.id, r.status]));
+    const [returnsRes, sourcingRes] = await Promise.all([fetch("/api/returns"), fetch("/api/local-sourcing")]);
+    if (returnsRes.ok) returns = await returnsRes.json();
+    if (sourcingRes.ok) sourcing = await sourcingRes.json();
+    const fingerprint = JSON.stringify([returns.map((r) => [r.id, r.status]), sourcing.map((r) => [r.id, r.status])]);
     if (fingerprint !== lastQueueFingerprint) {
       lastQueueFingerprint = fingerprint;
       renderQueueList();
@@ -45,14 +48,25 @@ async function fetchQueue() {
   }
 }
 
+// Returns and local-sourcing requests are separate record kinds fed by two
+// different storefront actions (submitting a return vs. "Search local
+// shops" on an out-of-stock item), merged here into one time-ordered feed
+// so the admin panel shows a single activity queue.
+function mergedQueue() {
+  const a = returns.map((r) => ({ ...r, kind: "return" }));
+  const b = sourcing.map((r) => ({ ...r, kind: "sourcing" }));
+  return [...a, ...b].sort((x, y) => new Date(y.submitted_at) - new Date(x.submitted_at));
+}
+
 function renderStats() {
   const local = returns.filter((r) => r.status === "routed_local").length;
   const hub = returns.filter((r) => r.status === "routed_hub").length;
   const defect = returns.filter((r) => r.status === "defect_repaired" || r.status === "defect_hub").length;
-  $("stat-queue").textContent = returns.length;
+  $("stat-queue").textContent = returns.length + sourcing.length;
   $("stat-local").textContent = local;
   $("stat-hub").textContent = hub;
   $("stat-defect").textContent = defect;
+  if ($("stat-sourced")) $("stat-sourced").textContent = sourcing.length;
 }
 
 function statusMeta(status) {
@@ -60,6 +74,7 @@ function statusMeta(status) {
   if (status === "routed_hub") return { dot: "dot-hub", label: "CENTRAL HUB" };
   if (status === "defect_repaired") return { dot: "dot-repaired", label: "REPAIRED · LOCAL" };
   if (status === "defect_hub") return { dot: "dot-defect", label: "CENTRAL WAREHOUSE" };
+  if (status === "contacted_local_service") return { dot: "dot-sourced", label: "LOCAL SERVICE" };
   return { dot: "dot-defect", label: "DEFECT" };
 }
 
@@ -77,23 +92,24 @@ function seasonLabel(season) {
 }
 
 function renderQueueList() {
-  const filtered = climateFilter === "All" ? returns : returns.filter((r) => r.area_climate_zone === climateFilter);
-  const hasReturns = returns.length > 0;
+  const merged = mergedQueue();
+  const filtered = climateFilter === "All" ? merged : merged.filter((r) => r.area_climate_zone === climateFilter);
+  const hasAny = merged.length > 0;
   const hasFiltered = filtered.length > 0;
-  emptyStateEl.hidden = hasReturns;
-  queueListEl.hidden = !hasReturns;
+  emptyStateEl.hidden = hasAny;
+  queueListEl.hidden = !hasAny;
 
-  if (hasReturns && !hasFiltered) {
-    queueListEl.innerHTML = `<p class="empty-filter">No returns from a ${climateFilter} climate zone yet.</p>`;
+  if (hasAny && !hasFiltered) {
+    queueListEl.innerHTML = `<p class="empty-filter">No activity from a ${climateFilter} climate zone yet.</p>`;
     return;
   }
 
   queueListEl.innerHTML = filtered
     .map((r) => {
       const meta = statusMeta(r.status);
-      const active = r.id === selectedId ? "active" : "";
+      const active = r.id === selectedId && r.kind === selectedKind ? "active" : "";
       return `
-        <button class="queue-row ${active}" data-id="${r.id}">
+        <button class="queue-row ${active}" data-id="${r.id}" data-kind="${r.kind}">
           <span class="qr-dot ${meta.dot}"></span>
           <span class="qr-main">
             <span class="qr-product">${r.product}</span>
@@ -106,7 +122,7 @@ function renderQueueList() {
     .join("");
 
   queueListEl.querySelectorAll(".queue-row").forEach((row) => {
-    row.addEventListener("click", () => selectReturn(row.dataset.id));
+    row.addEventListener("click", () => selectReturn(row.dataset.id, row.dataset.kind));
   });
 }
 
@@ -122,21 +138,49 @@ function initClimateFilter() {
   });
 }
 
-async function selectReturn(id) {
+async function selectReturn(id, kind) {
   selectedId = id;
+  selectedKind = kind;
   renderQueueList();
   detailPlaceholder.hidden = true;
   detailContent.hidden = false;
   detailContent.innerHTML = `<p class="loading-msg">Loading analysis…</p>`;
 
   try {
-    const res = await fetch(`/api/returns/${id}`);
-    if (!res.ok) throw new Error("Return not found");
+    const url = kind === "sourcing" ? `/api/local-sourcing/${id}` : `/api/returns/${id}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Record not found");
     const record = await res.json();
-    renderDetail(record);
+    if (kind === "sourcing") renderSourcingDetail(record);
+    else renderDetail(record);
   } catch (err) {
-    detailContent.innerHTML = `<p class="loading-msg">Could not load this return.</p>`;
+    detailContent.innerHTML = `<p class="loading-msg">Could not load this record.</p>`;
   }
+}
+
+function renderSourcingDetail(record) {
+  detailContent.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <p class="detail-eyebrow">SOURCING REQUEST ${record.id.toUpperCase()}</p>
+        <h2>${record.product}</h2>
+        <p class="detail-sub">${record.area_name} <span class="zone-tag zone-${record.area_climate_zone.toLowerCase()}">${record.area_climate_zone}</span> &middot; received ${formatTimestamp(record.submitted_at)}</p>
+      </div>
+      <span class="status-badge dot-sourced">Contacted Local Service</span>
+    </div>
+    <section class="panel">
+      <p class="panel-title">${ICONS.store} Local Shop Fulfillment</p>
+      <p class="reason-text" style="margin-bottom:10px;">This item was out of stock on SeasonMart; the customer asked LocalMesh to find it at a nearby partner shop instead of waiting for restock.</p>
+      <div class="stat-grid">
+        ${statTile("Qty requested", record.qty)}
+        ${statTile("Estimated delivery", record.eta_days, record.eta_days === 1 ? "day" : "days")}
+      </div>
+      <div class="decision-banner contacted-service">
+        <p class="decision-head">${ICONS.store}<span class="route-label">Contacted ${record.shop_name}</span></p>
+        <p class="reason-text">LocalMesh contacted a nearby partner shop in ${record.area_name} on the customer's behalf. Estimated delivery in ${record.eta_days} day${record.eta_days === 1 ? "" : "s"}.</p>
+      </div>
+    </section>
+  `;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -470,13 +514,18 @@ setInterval(fetchQueue, 4000);
 const clearBtn = document.getElementById("clear-queue");
 if (clearBtn) {
   clearBtn.addEventListener("click", async () => {
-    if (!returns.length) return;
-    if (!confirm("Clear all returns from the queue? This cannot be undone.")) return;
+    if (!returns.length && !sourcing.length) return;
+    if (!confirm("Clear all queue activity (returns and local-sourcing requests)? This cannot be undone.")) return;
     try {
-      const res = await fetch("/api/returns", { method: "DELETE" });
-      if (res.ok) {
+      const [returnsRes, sourcingRes] = await Promise.all([
+        fetch("/api/returns", { method: "DELETE" }),
+        fetch("/api/local-sourcing", { method: "DELETE" }),
+      ]);
+      if (returnsRes.ok && sourcingRes.ok) {
         returns = [];
+        sourcing = [];
         selectedId = null;
+        selectedKind = null;
         lastQueueFingerprint = "";
         renderQueueList();
         renderStats();

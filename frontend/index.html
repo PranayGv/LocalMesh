@@ -34,6 +34,10 @@
           <span class="tstat-value" id="stat-defect">0</span>
           <span class="tstat-label">Defects</span>
         </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-sourced">0</span>
+          <span class="tstat-label">Contacted</span>
+        </div>
         <div class="tstat live-stat">
           <span class="tstat-value"><span class="live-dot"></span>LIVE</span>
           <span class="tstat-label">Polling /api/returns</span>
@@ -44,9 +48,9 @@
     <div class="layout">
       <aside class="queue-pane">
         <div class="pane-head">
-          <h2>Returns Queue</h2>
+          <h2>Activity Queue</h2>
           <span class="pane-hint">Fed by the SeasonMart storefront</span>
-          <button class="clear-queue-btn" id="clear-queue" title="Clear all returns from queue">Clear Queue</button>
+          <button class="clear-queue-btn" id="clear-queue" title="Clear all queue activity">Clear Queue</button>
         </div>
         <div class="climate-filter" id="climate-filter">
           <button class="cf-btn on" data-zone="All">All</button>
@@ -57,7 +61,7 @@
         <div class="queue-list" id="queue-list"></div>
         <div class="empty-state" id="empty-state">
           <p class="empty-title">Queue is empty</p>
-          <p class="empty-sub">Submit a return on the storefront and it will appear here automatically.</p>
+          <p class="empty-sub">Submit a return, or search local shops for an out-of-stock item, on the storefront — it will appear here automatically.</p>
           <a class="empty-link" href="/shop/" target="_blank" rel="noopener">Open SeasonMart →</a>
         </div>
       </aside>

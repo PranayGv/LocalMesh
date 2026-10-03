@@ -73,6 +73,23 @@ LOCAL_WAREHOUSES = {
     ],
 }
 
+# One or two independent local partner shops per area, contacted when a
+# storefront product is out of stock and the customer asks LocalMesh to
+# find it nearby instead (separate from the LOCAL_WAREHOUSES above, which
+# only ever hold LocalMesh's own routed/repaired returns).
+LOCAL_SHOPS = {
+    "RAJ": [{"code": "RAJ-S1", "name": "Sharma General Store, Bapu Bazaar"}, {"code": "RAJ-S2", "name": "Rajasthan Electronics Hub, C-Scheme"}],
+    "DEL": [{"code": "DEL-S1", "name": "Lajpat Electronics, Lajpat Nagar"}, {"code": "DEL-S2", "name": "Karol Bagh Home Needs"}],
+    "BLR": [{"code": "BLR-S1", "name": "Jayanagar Appliances"}, {"code": "BLR-S2", "name": "Indiranagar Quick Mart"}],
+    "PUN": [{"code": "PUN-S1", "name": "FC Road Electronics"}, {"code": "PUN-S2", "name": "Kothrud Home Store"}],
+    "SHM": [{"code": "SHM-S1", "name": "Mall Road General Store"}],
+    "MUM": [{"code": "MUM-S1", "name": "Andheri Appliance Point"}, {"code": "MUM-S2", "name": "Dadar Home Essentials"}],
+    "CHE": [{"code": "CHE-S1", "name": "T Nagar Electronics"}, {"code": "CHE-S2", "name": "Adyar Home Mart"}],
+    "KOL": [{"code": "KOL-S1", "name": "Gariahat Appliances"}, {"code": "KOL-S2", "name": "Park Street Essentials"}],
+    "LKO": [{"code": "LKO-S1", "name": "Hazratganj Home Store"}],
+    "LEH": [{"code": "LEH-S1", "name": "Leh Market General Store"}],
+}
+
 MONTHS = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
 
 # Bounds for the thermal-map gauge, and the thresholds that classify a
@@ -139,6 +156,26 @@ def pick_local_warehouse(area_code: str, seed_key: str) -> dict | None:
         return None
     digest = int(hashlib.sha256(f"warehouse|{area_code}|{seed_key}".encode()).hexdigest(), 16)
     return warehouses[digest % len(warehouses)]
+
+
+def get_local_shops(area_code: str) -> list[dict]:
+    return LOCAL_SHOPS.get(area_code, [])
+
+
+def pick_local_shop(area_code: str, seed_key: str) -> dict | None:
+    """Deterministically assign one of the area's local partner shops to a
+    sourcing request, same pattern as pick_local_warehouse above."""
+    shops = get_local_shops(area_code)
+    if not shops:
+        return None
+    digest = int(hashlib.sha256(f"shop|{area_code}|{seed_key}".encode()).hexdigest(), 16)
+    return shops[digest % len(shops)]
+
+
+def estimate_shop_eta_days(seed_key: str) -> int:
+    """Deterministic 1-3 day delivery estimate for a local-shop sourcing request."""
+    digest = int(hashlib.sha256(f"shop_eta|{seed_key}".encode()).hexdigest(), 16)
+    return 1 + (digest % 3)
 
 
 def suited_climates_for_season(season: str | None) -> list[str]:

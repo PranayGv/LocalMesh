@@ -25,6 +25,8 @@
   --amber-soft: #fdf0dc;
   --maroon: #9f1239;
   --maroon-soft: #fde8ec;
+  --violet: #6d28d9;
+  --violet-soft: #ede9fe;
 
   --cold-hue: #2563a6;
   --moderate-hue: #b45309;
@@ -61,6 +63,8 @@
     --amber-soft: rgba(227, 151, 43, 0.14);
     --maroon: #e0577a;
     --maroon-soft: rgba(224, 87, 122, 0.14);
+    --violet: #a78bfa;
+    --violet-soft: rgba(167, 139, 250, 0.16);
   }
 }
 
@@ -400,6 +404,15 @@ body {
   color: var(--maroon);
 }
 
+.dot-sourced {
+  background: var(--violet);
+  color: var(--violet);
+}
+.qr-status.dot-sourced {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
 .empty-state {
   padding: 28px 20px;
   text-align: center;
@@ -508,6 +521,11 @@ body {
   background: var(--maroon-soft);
   color: var(--maroon);
   border: 1px solid var(--maroon);
+}
+.status-badge.dot-sourced {
+  background: var(--violet-soft);
+  color: var(--violet);
+  border: 1px solid var(--violet);
 }
 
 .panel {
@@ -909,6 +927,11 @@ body {
   border-color: var(--amber);
 }
 
+.decision-banner.contacted-service {
+  background: var(--violet-soft);
+  border-color: var(--violet);
+}
+
 .decision-head {
   display: flex;
   align-items: center;
@@ -927,6 +950,10 @@ body {
 
 .decision-banner.central-hub svg {
   stroke: var(--amber);
+}
+
+.decision-banner.contacted-service svg {
+  stroke: var(--violet);
 }
 
 .route-label {

@@ -185,6 +185,11 @@ const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){re
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const inr=n=>'₹'+n.toLocaleString('en-IN');
 const off=p=>Math.round(100-p.p/p.m*100);
+// Cumulative units sold per product id this session — the catalog's `left`
+// field is the starting stock; actual remaining stock is `left` minus this,
+// so "Buy now" actually depletes stock instead of leaving the counter frozen.
+let STOCK_SOLD=load('seasonmart_stock_sold',{});
+const effectiveStock=p=>Math.max(0,p.left-(STOCK_SOLD[p.id]||0));
 let cat='all',query='',retId=null,chip='',CITIES=[],LOCAL_STOCK=new Set(),lastStockFingerprint='';
 let retStep='review',chosenResolution=null;
 const eta=()=>{const d=new Date();d.setDate(d.getDate()+3);return d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})};
@@ -202,17 +207,22 @@ const SEASON_LABEL={summer:'Summer',monsoon:'Monsoon',winter:'Winter'};
 function card(p){
   const st=Math.round(p.r);
   const inStock=LOCAL_STOCK.has(p.n);
+  const stock=effectiveStock(p);
+  const outOfStock=stock<=0;
   const delivery=inStock?'<span class="instock">⚡ In stock — local warehouse</span>':(p.km?'Ships from '+p.km+' km away':'Free delivery by '+eta());
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
-  return `<article class="card${inStock?' local-stock':''}">
+  const actions=outOfStock
+    ?`<button class="btn find-local" data-findlocal="${p.id}">🔎 Search local shops</button>`
+    :`<button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button>`;
+  return `<article class="card${inStock?' local-stock':''}${outOfStock?' out-of-stock':''}">
     <div class="ph"><span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
     <h3>${p.n}</h3>
     <div class="meta-row">${climateBadge}</div>
     <div class="stars">${'★'.repeat(st)+'☆'.repeat(5-st)}<i>${p.r} (${p.c.toLocaleString('en-IN')})</i></div>
     <div class="price">${inr(p.p)}<s>${inr(p.m)}</s></div>
-    <div class="del">${delivery}</div>
-    <div class="low">${p.left<=6?'Only '+p.left+' left in stock':''}</div>
-    <div class="acts"><button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button></div>
+    <div class="del">${outOfStock?'':delivery}</div>
+    <div class="low">${outOfStock?'Out of stock':(stock<=6?'Only '+stock+' left in stock':'')}</div>
+    <div class="acts${outOfStock?' single':''}">${actions}</div>
   </article>`;
 }
 
@@ -267,7 +277,7 @@ function renderAds(){
   if(!rail)return;
   const season=currentSeason();
   const adCat=SEASON_AD_CAT[season]||'cool';
-  const picks=P.filter(p=>p.cat===adCat&&p.cond===undefined).sort((a,b)=>b.r-a.r).slice(0,4);
+  const picks=P.filter(p=>p.cat===adCat&&p.cond===undefined&&effectiveStock(p)>0).sort((a,b)=>b.r-a.r).slice(0,4);
   rail.innerHTML=`<div class="ad-card">
     <div class="ad-head">
       <span class="ad-flag">Sponsored</span>
@@ -321,8 +331,24 @@ function renderOrders(){
 }
 function placeOrder(items){
   const o=load('seasonmart_orders',[]);
-  items.forEach((x,i)=>{const p=P[x.id];o.push({uid:Date.now()+i,pid:p.id,n:p.n,p:p.p,q:x.q,cat:p.cat,cl:p.cl,returned:false})});
-  save('seasonmart_orders',o);toast('Order placed. Delivery by '+eta()+'.');
+  let placedQty=0,skipped=false;
+  items.forEach((x,i)=>{
+    const p=P[x.id];
+    const qty=Math.min(x.q,effectiveStock(p));
+    if(qty<=0){skipped=true;return}
+    if(qty<x.q)skipped=true;
+    o.push({uid:Date.now()+i,pid:p.id,n:p.n,p:p.p,q:qty,cat:p.cat,cl:p.cl,returned:false});
+    STOCK_SOLD[p.id]=(STOCK_SOLD[p.id]||0)+qty;
+    placedQty+=qty;
+  });
+  save('seasonmart_orders',o);
+  save('seasonmart_stock_sold',STOCK_SOLD);
+  if(placedQty>0){
+    toast(skipped?'Order placed for what was in stock. Delivery by '+eta()+'.':'Order placed. Delivery by '+eta()+'.');
+    renderGrid();
+  }else{
+    toast('Sorry, that item just went out of stock.');
+  }
 }
 
 async function loadCities(){
@@ -392,6 +418,50 @@ function toggleTheme(){
   applyTheme(next);
 }
 
+// "Search local shops" — shown on out-of-stock cards instead of Add to
+// cart/Buy now. Runs a short searching→contacting animation, then asks
+// LocalMesh to contact a nearby partner shop for this product; the result
+// (shop + ETA) is also recorded on the LocalMesh admin panel as a
+// "Contacted Local Service" entry.
+let localSearchToken=0;
+function openLocalSearch(id){
+  const p=P[id];
+  if(!p)return;
+  const token=++localSearchToken;
+  const body=$('#localBody');
+  body.innerHTML=`<p class="ls-item">${p.n}</p>
+    <div class="ls-stage"><div class="spinner"></div><p class="ls-msg" id="lsMsg">Searching nearby local shops…</p></div>`;
+  $('#localDlg').showModal();
+
+  setTimeout(()=>{
+    if(token!==localSearchToken)return;
+    const msg=$('#lsMsg');
+    if(msg)msg.textContent='Contacting local shops…';
+  },1200);
+
+  setTimeout(async()=>{
+    if(token!==localSearchToken)return;
+    const pincode=load('seasonmart_profile',{}).pin||'';
+    let result=null;
+    try{
+      const res=await fetch('/api/local-sourcing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product:p.n,pincode,qty:1})});
+      if(res.ok)result=await res.json();
+    }catch(err){ /* LocalMesh unreachable */ }
+    if(token!==localSearchToken)return;
+    if(result){
+      body.innerHTML=`<p class="ls-item">${p.n}</p>
+        <div class="ls-found">
+          <p class="ls-found-head">✅ Item found — available nearby</p>
+          <div class="pi-row"><span>Shop</span><b>${result.shop_name}</b></div>
+          <div class="pi-row"><span>Estimated delivery</span><b>${result.eta_days} day${result.eta_days===1?'':'s'}</b></div>
+        </div>
+        <button class="btn buy" style="width:100%" data-ls-buy="${id}" data-ls-shop="${result.shop_name}" data-ls-eta="${result.eta_days}">Buy now</button>`;
+    }else{
+      body.innerHTML=`<p class="ls-item">${p.n}</p><p class="empty">Could not reach local shops right now. Please try again shortly.</p>`;
+    }
+  },2500);
+}
+
 document.addEventListener('click',e=>{
   const t=e.target.closest('button')||e.target,d=t.dataset||{};
   if(d.cat){cat=d.cat;query='';$('#q').value='';renderGrid();return}
@@ -408,8 +478,21 @@ document.addEventListener('click',e=>{
   if(t.hasAttribute&&t.hasAttribute('data-clear-orders')){
     if(confirm('Clear all orders and return history? This cannot be undone.')){
       localStorage.removeItem('seasonmart_orders');localStorage.removeItem('seasonmart_returns');
-      renderOrders();toast('Orders and returns cleared.');
+      localStorage.removeItem('seasonmart_stock_sold');STOCK_SOLD={};
+      renderOrders();renderGrid();toast('Orders and returns cleared.');
     }
+  }
+  if(d.findlocal){openLocalSearch(+d.findlocal)}
+  if(t.hasAttribute&&t.hasAttribute('data-ls-buy')){
+    const id=+t.dataset.lsBuy,shop=t.dataset.lsShop,etaDays=t.dataset.lsEta;
+    const p=P[id];
+    if(p){
+      const o=load('seasonmart_orders',[]);
+      o.push({uid:Date.now(),pid:p.id,n:p.n,p:p.p,q:1,cat:p.cat,cl:p.cl,returned:false,sourced:{shop,etaDays}});
+      save('seasonmart_orders',o);
+      toast(`Order placed via ${shop}. Delivery in ${etaDays} day${etaDays==1?'':'s'}.`);
+    }
+    $('#localDlg').close();
   }
   if(d.ret){
     retId=+d.ret;chip='';const x=load('seasonmart_orders',[]).find(o=>o.uid===retId);
