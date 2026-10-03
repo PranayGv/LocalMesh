@@ -3,41 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LocalMesh — Return Routing</title>
+  <title>LocalMesh WMS — Returns Intake</title>
   <link rel="stylesheet" href="/styles.css" />
   <script src="/vendor/chart.umd.js"></script>
 </head>
 <body>
-  <main class="page">
-    <header>
-      <div class="logo-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
+  <div class="wms">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">LM</span>
+        <div class="brand-text">
+          <h1>LocalMesh</h1>
+          <p>Returns Intake &amp; Routing Terminal</p>
+        </div>
       </div>
-      <div>
-        <h1>LocalMesh</h1>
-        <p class="subtitle">Smart routing for returned products — local warehouse or central hub?</p>
+      <div class="topbar-stats">
+        <div class="tstat">
+          <span class="tstat-value" id="stat-queue">0</span>
+          <span class="tstat-label">In Queue</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-local">0</span>
+          <span class="tstat-label">Local WH</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-hub">0</span>
+          <span class="tstat-label">Central Hub</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-defect">0</span>
+          <span class="tstat-label">Defects</span>
+        </div>
+        <div class="tstat live-stat">
+          <span class="tstat-value"><span class="live-dot"></span>LIVE</span>
+          <span class="tstat-label">Polling /api/returns</span>
+        </div>
       </div>
     </header>
 
-    <form id="review-form" class="card">
-      <label class="field-label" for="category">Product</label>
-      <div class="select-wrap"><select id="category" required></select></div>
+    <div class="layout">
+      <aside class="queue-pane">
+        <div class="pane-head">
+          <h2>Returns Queue</h2>
+          <span class="pane-hint">Fed by the SeasonMart storefront</span>
+          <button class="clear-queue-btn" id="clear-queue" title="Clear all returns from queue">Clear Queue</button>
+        </div>
+        <div class="climate-filter" id="climate-filter">
+          <button class="cf-btn on" data-zone="All">All</button>
+          <button class="cf-btn" data-zone="Hot">Hot</button>
+          <button class="cf-btn" data-zone="Moderate">Moderate</button>
+          <button class="cf-btn" data-zone="Cold">Cold</button>
+        </div>
+        <div class="queue-list" id="queue-list"></div>
+        <div class="empty-state" id="empty-state">
+          <p class="empty-title">Queue is empty</p>
+          <p class="empty-sub">Submit a return on the storefront and it will appear here automatically.</p>
+          <a class="empty-link" href="/shop/" target="_blank" rel="noopener">Open SeasonMart →</a>
+        </div>
+      </aside>
 
-      <label class="field-label" for="area">Return area</label>
-      <div class="select-wrap"><select id="area" required></select></div>
-
-      <label class="field-label" for="review_text">Return review</label>
-      <textarea id="review_text" rows="4" required
-        placeholder="e.g. The cooler works fine but it's too noisy for my bedroom."></textarea>
-
-      <button type="submit" id="submit-btn">Process Return</button>
-      <p id="form-error" class="error" hidden></p>
-    </form>
-
-    <section id="results" hidden></section>
-  </main>
+      <main class="detail-pane">
+        <div class="detail-placeholder" id="detail-placeholder">
+          <p>Select a return from the queue to view its routing analysis.</p>
+        </div>
+        <div class="detail-content" id="detail-content" hidden></div>
+      </main>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

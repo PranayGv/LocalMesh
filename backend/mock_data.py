@@ -5,12 +5,20 @@ can reach all three routing outcomes (demand-driven warehouse, climate-fit
 warehouse, central hub) depending on which area/category the user picks.
 """
 
+import hashlib
+import random
+
 AREAS = [
     {"code": "RAJ", "name": "Jaipur", "pincode": "302001", "climate_zone": "Hot", "avg_temp_c": 38},
     {"code": "DEL", "name": "Delhi", "pincode": "110001", "climate_zone": "Hot", "avg_temp_c": 34},
     {"code": "BLR", "name": "Bengaluru", "pincode": "560001", "climate_zone": "Moderate", "avg_temp_c": 24},
     {"code": "PUN", "name": "Pune", "pincode": "411001", "climate_zone": "Moderate", "avg_temp_c": 27},
     {"code": "SHM", "name": "Shimla", "pincode": "171001", "climate_zone": "Cold", "avg_temp_c": 12},
+    {"code": "MUM", "name": "Mumbai", "pincode": "400001", "climate_zone": "Hot", "avg_temp_c": 31},
+    {"code": "CHE", "name": "Chennai", "pincode": "600001", "climate_zone": "Hot", "avg_temp_c": 33},
+    {"code": "KOL", "name": "Kolkata", "pincode": "700001", "climate_zone": "Moderate", "avg_temp_c": 29},
+    {"code": "LKO", "name": "Lucknow", "pincode": "226001", "climate_zone": "Hot", "avg_temp_c": 32},
+    {"code": "LEH", "name": "Leh", "pincode": "194101", "climate_zone": "Cold", "avg_temp_c": 3},
 ]
 
 # Specific products (not abstract categories) — each still maps to one
@@ -49,6 +57,17 @@ PURCHASE_HISTORY = {
 
 _DEFAULT_HISTORY = [20, 20, 20, 20, 20, 20]
 
+# Any SeasonMart product can be returned, not just Cooler/Fan/Heater, so
+# climate fit for arbitrary products is derived from the storefront's
+# "season" tag rather than a fixed per-product table. "monsoon" items are
+# treated as suited everywhere (rain gear is needed regardless of hot/cold).
+SEASON_SUITED_CLIMATES = {
+    "summer": ["Hot", "Moderate"],
+    "monsoon": ["Hot", "Moderate", "Cold"],
+    "winter": ["Cold", "Moderate"],
+}
+_DEFAULT_SUITED_CLIMATES = ["Hot", "Moderate", "Cold"]
+
 
 def get_area(area_code: str) -> dict | None:
     return next((a for a in AREAS if a["code"] == area_code), None)
@@ -60,3 +79,48 @@ def get_category(category_code: str) -> dict | None:
 
 def get_purchase_history(area_code: str, category_code: str) -> list[int]:
     return PURCHASE_HISTORY.get((area_code, category_code), list(_DEFAULT_HISTORY))
+
+
+def suited_climates_for_season(season: str | None) -> list[str]:
+    return SEASON_SUITED_CLIMATES.get((season or "").lower(), _DEFAULT_SUITED_CLIMATES)
+
+
+def resolve_area(pincode: str | None) -> dict:
+    """Map a free-typed storefront pincode to the nearest known mock area.
+
+    Exact match wins; otherwise we fall back to whichever area shares the
+    longest pincode prefix (a rough stand-in for geographic proximity), and
+    finally default to the first area if the pincode is empty/unrecognised.
+    """
+    pincode = (pincode or "").strip()
+    if not pincode:
+        return AREAS[0]
+    exact = next((a for a in AREAS if a["pincode"] == pincode), None)
+    if exact:
+        return exact
+
+    def shared_prefix_len(a: str, b: str) -> int:
+        length = 0
+        for x, y in zip(a, b):
+            if x != y:
+                break
+            length += 1
+        return length
+
+    return max(AREAS, key=lambda a: shared_prefix_len(a["pincode"], pincode))
+
+
+def generate_purchase_history(seed_key: str) -> list[int]:
+    """Deterministic pseudo-random 6-month purchase history for any
+    (product, area) pair that isn't in the hand-authored table above, so
+    every SeasonMart product/area combination still produces a plausible,
+    stable demand chart."""
+    seed = int(hashlib.sha256(seed_key.encode()).hexdigest(), 16) % (2**32)
+    rng = random.Random(seed)
+    trend = rng.choice([-1, 0, 1, 1])  # mild bias toward rising demand, for variety
+    value = rng.randint(15, 70)
+    counts = []
+    for _ in range(6):
+        value = max(2, value + trend * rng.randint(3, 14) + rng.randint(-6, 6))
+        counts.append(value)
+    return counts
