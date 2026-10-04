@@ -11,6 +11,11 @@ let demandChart = null;
 let lastQueueFingerprint = "";
 let climateFilter = "All";
 
+let viewMode = "returns"; // "returns" | "ads"
+let catalog = [];
+let adSeason = "summer";
+let selectedProduct = null;
+
 const ICONS = {
   classify: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
   wrench: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 10-5.4 5.4L2 19v3h3l7.3-7.3a4 4 0 005.4-5.4z"/></svg>`,
@@ -156,19 +161,33 @@ function renderDetail(record) {
     </div>
   `;
 
-  html += renderReview(record.review_text);
-  html += renderClassification(record.classification);
+  // Review + classification always sit on the left; the branch-specific
+  // outcome (repair pipeline, or demand/climate/decision) sits on the right,
+  // so the two columns fill the full width and the page doesn't need to
+  // scroll to reach the decision at the bottom.
+  let leftHtml = renderReview(record.review_text) + renderClassification(record.classification);
+  let rightHtml = "";
 
   if (record.defect_branch) {
-    html += renderDefect(record.defect_branch);
+    rightHtml = renderDefect(record.defect_branch);
   } else if (record.dissatisfaction_branch) {
-    html += renderDissatisfaction(record.dissatisfaction_branch, record.area_code);
+    const { demand, climate, decision } = record.dissatisfaction_branch;
+    leftHtml += `<section class="panel">${renderDemandSection(demand)}</section>`;
+    rightHtml = `<section class="panel">${renderClimateSection(climate)}<div class="section-block">${renderDecision(decision)}</div></section>`;
   }
+
+  html += `
+    <div class="detail-grid">
+      <div class="detail-col">${leftHtml}</div>
+      <div class="detail-col">${rightHtml}</div>
+    </div>
+  `;
 
   detailContent.innerHTML = html;
 
   if (record.dissatisfaction_branch) {
     drawDemandChart(record.dissatisfaction_branch.demand);
+    drawClimateMap(record.dissatisfaction_branch.climate);
   }
 }
 
@@ -290,7 +309,7 @@ function renderClimateSection(climate) {
         <span class="zone-chip zone-${climate.area_climate_zone.toLowerCase()}">${climate.area_climate_zone}</span>
         <span class="readout-temp">${climate.avg_temp_c}&deg;C</span>
       </div>
-      ${renderIndiaMap(climate)}
+      ${renderIndiaMap()}
       <div class="thermal-slider">
         <div class="thermal-track">
           <div class="thermal-marker" style="left:${pct}%;">
@@ -319,19 +338,6 @@ function renderDecision(decision) {
       <p class="decision-head">${icon}<span class="route-label">Decision: ${routeLabel}</span></p>
       <p class="reason-text">${decision.reason}</p>
     </div>
-  `;
-}
-
-function renderDissatisfaction(branch) {
-  const { demand, climate, decision } = branch;
-  return `
-    <section class="panel">
-      ${renderDemandSection(demand)}
-      ${renderClimateSection(climate)}
-      <div class="section-block">
-        ${renderDecision(decision)}
-      </div>
-    </section>
   `;
 }
 
@@ -374,6 +380,8 @@ function drawDemandChart(demand) {
     },
     options: {
       animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       interaction: { intersect: false, mode: "index" },
       scales: {
@@ -419,43 +427,255 @@ function tempColor(tempC, scale) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* India map                                                              */
+/* Map (Leaflet + OpenStreetMap tiles, OpenWeatherMap temperature overlay) */
 /* ---------------------------------------------------------------------- */
 
-// Marker position (% from top-left) for each area, computed by equirectangular
-// projection against /images/india_map.png's documented bounds (Wikimedia
-// Commons "India location map.svg": N 37.5°, S 5.0°, W 67.0°, E 99.0°) —
-// x% = (lon-67)/32*100, y% = (37.5-lat)/32.5*100. Mirrors backend AREAS.
-const CITY_COORDS = {
-  RAJ: { x: 27.5, y: 32.6 }, // Jaipur
-  DEL: { x: 31.6, y: 27.1 }, // Delhi
-  BLR: { x: 33.1, y: 75.5 }, // Bengaluru
-  PUN: { x: 21.4, y: 58.4 }, // Pune
-  SHM: { x: 31.8, y: 19.7 }, // Shimla
-  MUM: { x: 18.4, y: 56.7 }, // Mumbai
-  CHE: { x: 41.5, y: 75.1 }, // Chennai
-  KOL: { x: 66.8, y: 45.9 }, // Kolkata
-  LKO: { x: 43.6, y: 32.8 }, // Lucknow
-  LEH: { x: 33.1, y: 10.3 }, // Leh
+// Real coordinates for each mock area — mirrors backend AREAS (mock_data.py).
+const LATLNG = {
+  RAJ: { lat: 26.9124, lng: 75.7873 }, // Jaipur
+  DEL: { lat: 28.6139, lng: 77.209 }, // Delhi
+  BLR: { lat: 12.9716, lng: 77.5946 }, // Bengaluru
+  PUN: { lat: 18.5204, lng: 73.8567 }, // Pune
+  SHM: { lat: 31.1048, lng: 77.1734 }, // Shimla
+  MUM: { lat: 19.076, lng: 72.8777 }, // Mumbai
+  CHE: { lat: 13.0827, lng: 80.2707 }, // Chennai
+  KOL: { lat: 22.5726, lng: 88.3639 }, // Kolkata
+  LKO: { lat: 26.8467, lng: 80.9462 }, // Lucknow
+  LEH: { lat: 34.1526, lng: 77.5771 }, // Leh
 };
 
-function renderIndiaMap(climate) {
-  const coords = CITY_COORDS[climate.area_code];
-  if (!coords) return "";
+const OWM_API_KEY = "25892280879006561ec590e8c037a197";
+
+function isDarkMode() {
+  return document.documentElement.dataset.theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+// Base map tiles: OpenStreetMap (light) / CARTO dark-matter (dark) — both
+// free, keyless. OpenWeatherMap's own tile layer (the provided key) is laid
+// on top as a live temperature heatmap, since OWM has no base map of its own.
+// Plain OpenStreetMap tiles — the only base layer that needs no API key at
+// all. Dark mode is faked with a CSS filter on the tile pane (see
+// .dark-map-pane in styles.css) rather than a second, keyed tile provider
+// (CARTO's dark tiles looked free but now gate on their own API key, same
+// problem as Google — this sidesteps that entirely).
+function baseTileLayer() {
+  return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  });
+}
+
+function weatherTileLayer() {
+  return L.tileLayer(`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`, {
+    opacity: 0.45,
+    attribution: '&copy; <a href="https://openweathermap.org/copyright">OpenWeatherMap</a>',
+  });
+}
+
+function buildMap(el) {
+  el.classList.toggle("dark-map-pane", isDarkMode());
+  const map = L.map(el, { zoomControl: true, attributionControl: true });
+  baseTileLayer().addTo(map);
+  weatherTileLayer().addTo(map);
+  return map;
+}
+
+function circleMarker(map, coords, color, radius) {
+  return L.circleMarker([coords.lat, coords.lng], {
+    radius,
+    color: "#fff",
+    weight: 2,
+    fillColor: color,
+    fillOpacity: 1,
+  }).addTo(map);
+}
+
+function renderIndiaMap() {
+  return `<div class="india-map-wrap" id="gmap-climate"></div>`;
+}
+
+function drawClimateMap(climate) {
+  const el = document.getElementById("gmap-climate");
+  const coords = LATLNG[climate.area_code];
+  if (!el || !coords) return;
   const color = tempColor(climate.avg_temp_c, climate.temp_scale);
+  const map = buildMap(el);
+  map.setView([coords.lat, coords.lng], 5);
+  const marker = circleMarker(map, coords, color, 10);
+  const icon = climate.area_climate_zone === "Hot" ? "🔥" : climate.area_climate_zone === "Cold" ? "❄️" : "";
+  marker.bindPopup(`<b>${icon} ${climate.avg_temp_c}&deg;C</b>`, { closeButton: false }).openPopup();
+}
+
+/* ---------------------------------------------------------------------- */
+/* Ad eligibility                                                         */
+/* ---------------------------------------------------------------------- */
+
+const SEASON_LABEL = { summer: "Summer", monsoon: "Monsoon", winter: "Winter" };
+
+function initViewTabs() {
+  const tabs = $("view-tabs");
+  if (!tabs) return;
+  tabs.querySelectorAll(".vt-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.view === viewMode) return;
+      viewMode = btn.dataset.view;
+      tabs.querySelectorAll(".vt-btn").forEach((b) => b.classList.toggle("on", b === btn));
+      $("returns-view").hidden = viewMode !== "returns";
+      $("ads-view").hidden = viewMode !== "ads";
+      detailContent.hidden = true;
+      detailContent.innerHTML = "";
+      detailPlaceholder.hidden = false;
+      detailPlaceholder.querySelector("p").textContent =
+        viewMode === "returns"
+          ? "Select a return from the queue to view its routing analysis."
+          : "Select a product to check where it's eligible to be advertised.";
+      if (viewMode === "ads" && !catalog.length) fetchCatalog();
+    });
+  });
+}
+
+function initSeasonFilter() {
+  const wrap = $("season-filter");
+  if (!wrap) return;
+  wrap.querySelectorAll(".cf-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      adSeason = btn.dataset.season;
+      wrap.querySelectorAll(".cf-btn").forEach((b) => b.classList.toggle("on", b === btn));
+      if (selectedProduct) selectProduct(selectedProduct);
+    });
+  });
+}
+
+async function fetchCatalog() {
+  const listEl = $("product-list");
+  listEl.innerHTML = `<p class="loading-msg">Loading catalog…</p>`;
+  try {
+    const res = await fetch("/api/catalog");
+    if (!res.ok) throw new Error("catalog fetch failed");
+    catalog = await res.json();
+    renderProductList();
+  } catch (err) {
+    listEl.innerHTML = `<p class="loading-msg">Could not load the product catalog.</p>`;
+  }
+}
+
+function renderProductList() {
+  const listEl = $("product-list");
+  listEl.innerHTML = catalog
+    .map((p) => {
+      const active = p.name === selectedProduct ? "active" : "";
+      return `
+        <button class="product-row ${active}" data-name="${p.name}">
+          <span class="pr-main">
+            <span class="pr-name">${p.name}</span>
+            <span class="pr-meta">${SEASON_LABEL[p.season] || p.season} &middot; &#8377;${p.price}</span>
+          </span>
+        </button>
+      `;
+    })
+    .join("");
+  listEl.querySelectorAll(".product-row").forEach((row) => {
+    row.addEventListener("click", () => selectProduct(row.dataset.name));
+  });
+}
+
+async function selectProduct(name) {
+  selectedProduct = name;
+  renderProductList();
+  detailPlaceholder.hidden = true;
+  detailContent.hidden = false;
+  detailContent.innerHTML = `<p class="loading-msg">Analyzing ad eligibility…</p>`;
+
+  try {
+    const res = await fetch(`/api/ads/eligibility?product=${encodeURIComponent(name)}&season=${encodeURIComponent(adSeason)}`);
+    if (!res.ok) throw new Error("eligibility fetch failed");
+    const data = await res.json();
+    renderAdDetail(data);
+  } catch (err) {
+    detailContent.innerHTML = `<p class="loading-msg">Could not analyze this product.</p>`;
+  }
+}
+
+function gateRow(icon, title, gate) {
   return `
-    <div class="india-map-wrap">
-      <img class="india-map-img" src="/images/india_map.png" alt="Map of India" />
-      <div class="india-marker" style="left:${coords.x}%; top:${coords.y}%;">
-        <span class="india-marker-dot" style="background:${color}; box-shadow:0 0 0 3px ${color}40;"></span>
-        <span class="india-marker-label">${climate.area_climate_zone === "Hot" ? "🔥" : climate.area_climate_zone === "Cold" ? "❄️" : ""} ${climate.avg_temp_c}&deg;C</span>
+    <div class="gate-row ${gate.passed ? "gate-pass" : "gate-fail"}">
+      <span class="gate-icon">${gate.passed ? "✓" : "✕"}</span>
+      <div class="gate-body">
+        <p class="gate-title">${title}</p>
+        <p class="gate-reason">${gate.reason}</p>
       </div>
     </div>
-    <p class="map-attribution">Map: <a href="https://commons.wikimedia.org/wiki/File:India_location_map.svg" target="_blank" rel="noopener">Uwe Dedering, Wikimedia Commons</a>, CC BY-SA 3.0</p>
   `;
 }
 
+function renderAdDetail(data) {
+  const { gates, eligible, cities } = data;
+  const eligibleCities = cities.filter((c) => c.ad_eligible);
+
+  const html = `
+    <div class="detail-header">
+      <div>
+        <p class="detail-eyebrow">AD ELIGIBILITY</p>
+        <h2>${data.product}</h2>
+        <p class="detail-sub">${SEASON_LABEL[data.season] || data.season} item &middot; evaluated for ${SEASON_LABEL[adSeason] || adSeason}</p>
+      </div>
+      <span class="status-badge ${eligible ? "dot-local" : "dot-defect"}">${eligible ? "ELIGIBLE" : "NOT ELIGIBLE"}</span>
+    </div>
+    <section class="panel ad-detail-grid">
+      <div class="ad-gates-col">
+        <p class="panel-title">${ICONS.classify} Eligibility Gates</p>
+        ${gateRow(ICONS.chart, "Bought by many users", gates.bought_by_many)}
+        ${gateRow(ICONS.review, "Return reason", gates.return_reason)}
+        ${gateRow(ICONS.thermo, "Suits current season", gates.season_fit)}
+        <div class="decision-banner ${eligible ? "local-warehouse" : "central-hub"}">
+          <p class="decision-head">${eligible ? ICONS.warehouse : ICONS.hub}<span class="route-label">${eligible ? `Eligible in ${eligibleCities.length} of ${cities.length} cities` : "Do not advertise"}</span></p>
+          <p class="reason-text">${
+            eligible
+              ? "Passed all gates — advertise in the cities below whose climate suits this product."
+              : "Stopped at the first failed gate above, so this product should not be advertised anywhere right now."
+          }</p>
+        </div>
+      </div>
+      <div class="ad-cities-col">
+        <p class="panel-title">${ICONS.hub} Suits City Climate</p>
+        ${renderAdCityMap(cities)}
+      </div>
+    </section>
+  `;
+  detailContent.innerHTML = html;
+  drawAdsMap(cities);
+}
+
+function renderAdCityMap(cities) {
+  const legend = cities
+    .map(
+      (c) =>
+        `<span class="city-chip ${c.ad_eligible ? "yes" : "no"}">${c.area_name} <small>${c.climate_zone}</small></span>`
+    )
+    .join("");
+  return `
+    <div class="india-map-wrap ad-map-wrap" id="gmap-ads"></div>
+    <div class="city-chip-grid">${legend}</div>
+  `;
+}
+
+function drawAdsMap(cities) {
+  const el = document.getElementById("gmap-ads");
+  if (!el) return;
+  const map = buildMap(el);
+  const points = [];
+  cities.forEach((c) => {
+    const coords = LATLNG[c.area_code];
+    if (!coords) return;
+    points.push([coords.lat, coords.lng]);
+    circleMarker(map, coords, c.ad_eligible ? "#3fb765" : "#6b7685", 7).bindTooltip(`${c.area_name} (${c.climate_zone})`);
+  });
+  if (points.length) map.fitBounds(points, { padding: [16, 16] });
+}
+
 initClimateFilter();
+initViewTabs();
+initSeasonFilter();
 fetchQueue();
 setInterval(fetchQueue, 4000);
 

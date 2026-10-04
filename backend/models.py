@@ -139,3 +139,91 @@ class ReturnListItem(BaseModel):
     submitted_at: str
     status: ReturnStatus
     status_label: str
+
+
+class WarehouseProduct(BaseModel):
+    name: str
+    category: str
+    climate_code: str
+    season: str
+    qty: int
+    price: int
+
+
+class WarehouseSummary(BaseModel):
+    area_code: str
+    area_name: str
+    products: list[WarehouseProduct]
+    total_units: int
+
+
+class StockSummary(BaseModel):
+    central: dict[str, int]
+    totals: dict[str, int]
+
+
+class WarehouseOverrideRequest(BaseModel):
+    product: str = Field(min_length=1)
+    qty: Optional[int] = Field(default=None, ge=0)
+    price: Optional[int] = Field(default=None, ge=0)
+    new_name: Optional[str] = None
+
+
+class AdPlacement(BaseModel):
+    season: str
+    area_code: str
+    products: list[str]
+
+
+class CatalogProduct(BaseModel):
+    name: str
+    category: str
+    climate_code: str
+    season: str
+    price: int
+
+
+class AdDemandGate(BaseModel):
+    passed: bool
+    cities_with_demand: int
+    total_cities: int
+    reason: str
+
+
+class AdReturnGate(BaseModel):
+    passed: bool
+    defect_count: int
+    dissatisfaction_count: int
+    leading: Literal["defects", "dissatisfaction", "none"]
+    reason: str
+
+
+class AdSeasonGate(BaseModel):
+    passed: bool
+    product_season: str
+    requested_season: str
+    reason: str
+
+
+class AdEligibilityGates(BaseModel):
+    bought_by_many: AdDemandGate
+    return_reason: AdReturnGate
+    season_fit: AdSeasonGate
+
+
+class AdEligibilityCity(BaseModel):
+    area_code: str
+    area_name: str
+    climate_zone: str
+    climate_fit: bool
+    ad_eligible: bool
+
+
+class AdEligibilityResponse(BaseModel):
+    product: str
+    category: str
+    season: str
+    climate_code: str
+    gates: AdEligibilityGates
+    eligible: bool
+    cities: list[AdEligibilityCity]

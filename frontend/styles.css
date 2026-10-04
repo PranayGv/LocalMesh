@@ -68,10 +68,13 @@
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
-  overflow-x: hidden;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text-primary);
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -81,7 +84,7 @@ body {
 .wms {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 /* --- Top bar --- */
@@ -162,6 +165,25 @@ body {
   margin-top: 2px;
 }
 
+.app-links {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.app-links a {
+  font-size: 0.78rem;
+  color: var(--header-text);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 5px 10px;
+  text-decoration: none;
+}
+
+.app-links a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .live-stat .tstat-value {
   display: inline-flex;
   align-items: center;
@@ -203,6 +225,10 @@ body {
 
 @media (max-width: 860px) {
   .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ad-detail-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -441,6 +467,23 @@ body {
   min-width: 0;
 }
 
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.detail-col {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .detail-placeholder {
   color: var(--text-muted);
   font-size: 0.92rem;
@@ -514,8 +557,8 @@ body {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 18px 20px;
-  margin-bottom: 16px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
 }
 
 .panel-title {
@@ -527,8 +570,8 @@ body {
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin: 0 0 14px;
-  padding-bottom: 10px;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--gridline);
 }
 
@@ -568,7 +611,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .confidence-track {
@@ -600,7 +643,7 @@ body {
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
-  margin: 4px 0 14px;
+  margin: 4px 0 8px;
 }
 
 .stat-tile {
@@ -675,7 +718,12 @@ body {
   margin: 4px 0 2px;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  padding: 14px 10px 6px;
+  padding: 8px 10px 2px;
+  height: 130px;
+}
+
+.chart-wrap canvas {
+  max-width: 100%;
 }
 
 .reason-text {
@@ -704,58 +752,67 @@ body {
   background: var(--panel-alt);
   border-radius: 4px;
   overflow: hidden;
-  max-width: 100%;
+  max-width: 170px;
+  height: 160px;
 }
 
-.india-map-img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
+/* Leaflet polish so the embed matches the dashboard theme */
+.leaflet-container {
+  background: var(--panel-alt);
+  font: inherit;
 }
 
-.india-marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--panel);
+  color: var(--text-primary);
 }
 
-.india-marker-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid var(--panel);
+.leaflet-popup-content {
+  margin: 8px 10px;
+  font-size: 0.8rem;
 }
 
-.india-marker-label {
-  margin-top: 3px;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  font-weight: 700;
-  background: var(--text-primary);
-  color: var(--panel);
-  padding: 1px 5px;
-  border-radius: 3px;
-  white-space: nowrap;
+.leaflet-control-zoom a {
+  background: var(--panel) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
 }
 
-.map-attribution {
-  margin: 4px 0 14px;
-  font-size: 0.68rem;
-  color: var(--text-muted);
+.leaflet-control-zoom a:hover {
+  background: var(--panel-alt) !important;
 }
 
-.map-attribution a {
-  color: inherit;
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: var(--text-muted) !important;
+  font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--text-secondary) !important;
+}
+
+.leaflet-tooltip {
+  background: var(--panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Fake a dark basemap with a CSS filter instead of a second, keyed tile
+   provider — only the base OSM layer (added first) is inverted; the
+   OpenWeatherMap overlay (added second) is left alone so its temperature
+   colors stay accurate. */
+.dark-map-pane .leaflet-tile-pane > .leaflet-layer:first-child {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
 }
 
 /* --- Thermal slider --- */
 
 .thermal-slider {
-  margin: 4px 0 16px;
+  margin: 4px 0 8px;
 }
 
 .thermal-track {
@@ -807,7 +864,7 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .readout-temp {
@@ -897,8 +954,8 @@ body {
 }
 
 .section-block + .section-block {
-  margin-top: 20px;
-  padding-top: 18px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--gridline);
 }
 
@@ -938,4 +995,192 @@ body {
 .clear-queue-btn:hover {
   background: var(--maroon);
   color: #fff;
+}
+
+/* --- View tabs (Returns Queue / Ads) --- */
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.vt-btn {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-alt);
+  color: var(--text-secondary);
+}
+
+.vt-btn:hover {
+  background: var(--border);
+}
+
+.vt-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pane-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane-view[hidden] {
+  display: none;
+}
+
+/* --- Ad eligibility: product list --- */
+
+.product-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 11px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.product-row:hover {
+  background: var(--panel);
+}
+
+.product-row.active {
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.pr-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pr-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.pr-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+/* --- Ad eligibility: detail view --- */
+
+.ad-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.ad-gates-col,
+.ad-cities-col {
+  min-width: 0;
+}
+
+.gate-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.gate-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 1px;
+}
+
+.gate-pass .gate-icon {
+  background: var(--green);
+}
+
+.gate-fail .gate-icon {
+  background: var(--maroon);
+}
+
+.gate-title {
+  margin: 0 0 2px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.gate-reason {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ad-map-wrap {
+  max-width: 300px;
+  height: 220px;
+  margin: 4px 0 10px;
+}
+
+.city-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.city-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.city-chip small {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.city-chip.yes {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.city-chip.yes small {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.city-chip.no {
+  opacity: 0.65;
 }
