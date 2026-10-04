@@ -192,7 +192,7 @@ let retStep='review',chosenResolution=null;
 // /api/stock), and the season/city ad order (from /api/ads) — all read
 // from the same backend data WareHub's admin app and the ops dashboard
 // use, so nothing here is a disconnected, hard-coded number.
-let CITY_STOCK=new Set(),CITY_NAME='',STOCK_TOTALS={},AD_ORDER=[];
+let CITY_STOCK=new Set(),CITY_NAME='',STOCK_TOTALS={},PURCHASED={},AD_ORDER=[];
 const eta=()=>{const d=new Date();d.setDate(d.getDate()+3);return d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})};
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3000)};
 
@@ -226,6 +226,13 @@ function card(p,{ad=false}={}){
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
   const total=STOCK_TOTALS[p.n];
   const netStock=total!==undefined?`<div class="netstock">Available stock (local + central warehouses): <b>${total.toLocaleString('en-IN')}</b></div>`:'';
+  // p.left is the catalog's starting "units left" countdown; purchases made
+  // through checkout (tracked server-side, shared across every device) are
+  // subtracted from it so this figure actually moves, same as the network
+  // stock total above.
+  const left=Math.max(0,p.left-(PURCHASED[p.n]||0));
+  const outOfStock=left<=0;
+  const lowStock=outOfStock?'Out of stock':left<=6?'Only '+left+' left in stock':'';
   return `<article class="card${inStock?' local-stock':''}${ad?' ad-card':''}">
     ${ad?'<p class="ad-flag" aria-label="Advertisement">Ad &middot; seasonmart.example</p>':''}
     <div class="ph">${productImg(p.n)}<span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
@@ -235,8 +242,8 @@ function card(p,{ad=false}={}){
     <div class="price">${inr(p.p)}<s>${inr(p.m)}</s></div>
     <div class="del">${delivery}</div>
     ${netStock}
-    <div class="low">${p.left<=6?'Only '+p.left+' left in stock':''}</div>
-    <div class="acts"><button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button></div>
+    <div class="low">${lowStock}</div>
+    <div class="acts"><button class="btn" data-add="${p.id}" ${outOfStock?'disabled':''}>Add to cart</button><button class="btn buy" data-buy="${p.id}" ${outOfStock?'disabled':''}>Buy now</button></div>
   </article>`;
 }
 
@@ -324,13 +331,17 @@ async function loadCityStock(){
 
 // Network-wide "available stock" per product: the central warehouse's
 // buffer plus every local warehouse's units, added together — not a
-// static per-product number baked into the catalog.
+// static per-product number baked into the catalog. Asks for every
+// product in the catalog by name (not just the curated subset the
+// backend defaults to) so every card gets a live figure.
 async function loadStockTotals(){
   try{
-    const res=await fetch('/api/stock');
+    const names=P.map(p=>encodeURIComponent(p.n)).join(',');
+    const res=await fetch('/api/stock?products='+names);
     if(!res.ok)throw new Error('stock fetch failed');
     const data=await res.json();
     STOCK_TOTALS=data.totals||{};
+    PURCHASED=data.purchased||{};
   }catch(e){ /* keep whatever we last had */ }
   renderGrid();
 }

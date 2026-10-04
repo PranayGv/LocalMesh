@@ -160,6 +160,7 @@ class WarehouseSummary(BaseModel):
 class StockSummary(BaseModel):
     central: dict[str, int]
     totals: dict[str, int]
+    purchased: dict[str, int] = {}
 
 
 class WarehouseOverrideRequest(BaseModel):

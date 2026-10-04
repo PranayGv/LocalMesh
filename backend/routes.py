@@ -203,11 +203,19 @@ def clear_warehouse_overrides():
 
 
 @router.get("/stock", response_model=StockSummary)
-def stock_summary():
+def stock_summary(products: str = ""):
     """Network-wide stock: the central warehouse's buffer, plus
     totals = central + every local warehouse's units, per product — the
-    "available stock" figure SeasonMart shows on each product card."""
-    return StockSummary(central=warehouses.central_stock(), totals=warehouses.total_stock_by_product())
+    "available stock" figure SeasonMart shows on each product card.
+    Defaults to the curated catalog (~23 items); pass a comma-separated
+    `products` list (e.g. SeasonMart's full ~80-item catalog) to get a
+    figure for every one of them, not just the curated subset."""
+    names = [p for p in (name.strip() for name in products.split(",")) if p] or None
+    return StockSummary(
+        central=warehouses.central_stock(names),
+        totals=warehouses.total_stock_by_product(names),
+        purchased=warehouses.purchased_for(names) if names else {},
+    )
 
 
 @router.post("/orders", response_model=StockSummary)

@@ -148,11 +148,17 @@ def all_warehouses() -> list[dict]:
     return [warehouse_summary(a["code"]) for a in mock_data.AREAS]
 
 
-def central_stock() -> dict[str, int]:
-    """Central-hub buffer stock for every catalog product: a deterministic
-    base quantity minus whatever's been sold through checkout so far."""
+def central_stock(names: list[str] | None = None) -> dict[str, int]:
+    """Central-hub buffer stock: a deterministic base quantity per product,
+    minus whatever's been sold through checkout so far. Defaults to the
+    curated catalog; pass explicit names to cover any product — including
+    the ~60 SeasonMart items that aren't in the smaller curated catalog
+    local warehouses stock from — since the formula (seeded by the
+    product name alone) is just as deterministic for a name outside
+    CATALOG as for one inside it."""
+    target_names = names if names is not None else [name for name, *_rest in CATALOG]
     out = {}
-    for name, *_rest in CATALOG:
+    for name in target_names:
         rng = _seeded_rng(f"centralwh-qty|{name}")
         base = rng.randint(40, 150)
         out[name] = max(0, base - _purchased.get(name, 0))
@@ -168,18 +174,27 @@ def record_purchase(product: str, qty: int) -> None:
     _purchased[product] = _purchased.get(product, 0) + qty
 
 
+def purchased_for(names: list[str]) -> dict[str, int]:
+    """Units sold so far for each of the given products — what the
+    storefront subtracts from a product's own "units left" countdown so
+    that figure moves too, not just the network stock total."""
+    return {name: _purchased.get(name, 0) for name in names}
+
+
 def clear_purchases() -> None:
     _purchased.clear()
 
 
-def total_stock_by_product() -> dict[str, int]:
+def total_stock_by_product(names: list[str] | None = None) -> dict[str, int]:
     """Network-wide available stock per product: the central warehouse's
     buffer plus every local warehouse's units of that product, added
-    together — the number SeasonMart shows as "available stock"."""
-    totals = dict(central_stock())
+    together — the number SeasonMart shows as "available stock". Defaults
+    to the curated catalog; pass explicit names to cover any product."""
+    totals = dict(central_stock(names))
     for area in mock_data.AREAS:
         for p in local_warehouse_products(area["code"]):
-            totals[p["name"]] = totals.get(p["name"], 0) + p["qty"]
+            if p["name"] in totals:
+                totals[p["name"]] = totals.get(p["name"], 0) + p["qty"]
     return totals
 
 
