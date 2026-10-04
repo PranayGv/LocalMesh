@@ -187,6 +187,12 @@ const inr=n=>'₹'+n.toLocaleString('en-IN');
 const off=p=>Math.round(100-p.p/p.m*100);
 let cat='all',query='',retId=null,chip='',CITIES=[],LOCAL_STOCK=new Set(),lastStockFingerprint='';
 let retStep='review',chosenResolution=null;
+// City-specific local-warehouse stock (from /api/warehouses/{areaCode}),
+// network-wide available stock (central + every local warehouse, from
+// /api/stock), and the season/city ad order (from /api/ads) — all read
+// from the same backend data WareHub's admin app and the ops dashboard
+// use, so nothing here is a disconnected, hard-coded number.
+let CITY_STOCK=new Set(),CITY_NAME='',STOCK_TOTALS={},AD_ORDER=[];
 const eta=()=>{const d=new Date();d.setDate(d.getDate()+3);return d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})};
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3000)};
 
@@ -197,30 +203,51 @@ const CITY_STATE={RAJ:'Rajasthan',DEL:'Delhi',BLR:'Karnataka',PUN:'Maharashtra',
 // Season → category shown in the seasonal ad rail (coolers/fans in summer,
 // heaters in winter, rain gear in monsoon).
 const SEASON_AD_CAT={summer:'cool',monsoon:'rain',winter:'heat'};
-const SEASON_LABEL={summer:'Summer',monsoon:'Monsoon',winter:'Winter'};
 
-function card(p){
+// Product photos live in /product_imgs, one per catalog item, filed under a
+// slug of the exact product name (see that folder's own naming). onerror
+// removes a missing image so the name placeholder underneath still shows.
+function slugify(s){
+  return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+function productImg(name){
+  return `<img src="product_imgs/${slugify(name)}.png" alt="${name}" loading="lazy" onerror="this.remove()">`;
+}
+
+// `ad` renders this as a sponsored placement — a plain small "Ad" label
+// above an otherwise identical card, the way real marketplaces (Amazon,
+// Flipkart) style sponsored listings so they read as genuine products
+// rather than a separate banner.
+function card(p,{ad=false}={}){
   const st=Math.round(p.r);
-  const inStock=LOCAL_STOCK.has(p.n);
-  const delivery=inStock?'<span class="instock">⚡ In stock — local warehouse</span>':(p.km?'Ships from '+p.km+' km away':'Free delivery by '+eta());
+  const cityHit=CITY_STOCK.has(p.n),retHit=LOCAL_STOCK.has(p.n),inStock=cityHit||retHit;
+  const delivery=cityHit?`<span class="instock">⚡ In stock — ${CITY_NAME||'your city'} local warehouse</span>`
+    :retHit?'<span class="instock">⚡ In stock — local warehouse</span>'
+    :(p.km?'Ships from '+p.km+' km away':'Free delivery by '+eta());
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
-  return `<article class="card${inStock?' local-stock':''}">
-    <div class="ph"><span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
+  const total=STOCK_TOTALS[p.n];
+  const netStock=total!==undefined?`<div class="netstock">Available stock (local + central warehouses): <b>${total.toLocaleString('en-IN')}</b></div>`:'';
+  return `<article class="card${inStock?' local-stock':''}${ad?' ad-card':''}">
+    ${ad?'<p class="ad-flag" aria-label="Advertisement">Ad &middot; seasonmart.example</p>':''}
+    <div class="ph">${productImg(p.n)}<span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
     <h3>${p.n}</h3>
     <div class="meta-row">${climateBadge}</div>
     <div class="stars">${'★'.repeat(st)+'☆'.repeat(5-st)}<i>${p.r} (${p.c.toLocaleString('en-IN')})</i></div>
     <div class="price">${inr(p.p)}<s>${inr(p.m)}</s></div>
     <div class="del">${delivery}</div>
+    ${netStock}
     <div class="low">${p.left<=6?'Only '+p.left+' left in stock':''}</div>
     <div class="acts"><button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button></div>
   </article>`;
 }
 
 // LocalMesh-routed items (demand-driven, climate-fit, or repaired defects
-// that landed back at the local warehouse) always surface first, in every
-// view, so the storefront visibly favors stock that's already nearby.
+// that landed back at the local warehouse) and items the selected city's
+// local warehouse actually stocks always surface first, in every view, so
+// the storefront visibly favors stock that's already nearby.
 function sortLocalStockFirst(list){
-  return [...list].sort((a,b)=>(LOCAL_STOCK.has(b.n)?1:0)-(LOCAL_STOCK.has(a.n)?1:0));
+  const inStock=n=>CITY_STOCK.has(n)||LOCAL_STOCK.has(n);
+  return [...list].sort((a,b)=>(inStock(b.n)?1:0)-(inStock(a.n)?1:0));
 }
 
 function filterByCategory(items){
@@ -235,25 +262,78 @@ function renderGrid(){
   if(query)list=P.filter(p=>p.n.toLowerCase().includes(query)&&p.cat!=='open');
   list=sortLocalStockFirst(list);
   $('#secT').textContent=query?`Results for "${query}" (${list.length})`:(COPY[cat]?.[0]||CAT_LABEL[cat]);
-  $('#grid').innerHTML=list.length?list.map(card).join(''):'<p class="empty">No products match this filter.</p>';
+  $('#grid').innerHTML=list.length?list.map(p=>card(p)).join(''):'<p class="empty">No products match this filter.</p>';
   const showOb=!query&&cat!=='open';
   $('#obw').hidden=!showOb;
-  if(showOb)$('#obGrid').innerHTML=sortLocalStockFirst(P.filter(p=>p.cat==='open')).map(card).join('');
+  if(showOb)$('#obGrid').innerHTML=sortLocalStockFirst(P.filter(p=>p.cat==='open')).map(p=>card(p)).join('');
   renderAds();
 }
 
-// Right-rail "advertisement" — product picks matched to the shopper's
-// selected season, e.g. coolers and fans surface for summer.
+// "Sponsored" slots in the rail — the season's fixed product picks (same 4
+// products in every city for a given season) in the order /api/ads returns.
+// That order is shuffled per city, so the same season advertises the same
+// products everywhere but which ones land where swaps city to city, as a
+// stand-in for local demand ranking. Rendered as regular product cards (see
+// card()'s `ad` option) so they read as real listings, not a banner.
 function renderAds(){
   const rail=$('#adRail');
   if(!rail)return;
   const season=currentSeason();
-  const adCat=SEASON_AD_CAT[season]||'cool';
-  const picks=P.filter(p=>p.cat===adCat&&p.cond===undefined).sort((a,b)=>b.r-a.r).slice(0,4);
-  rail.innerHTML=`<div class="ad-card">
-    <h4>Sponsored &middot; Built for ${SEASON_LABEL[season]||'the season'}</h4>
-    ${picks.map(p=>`<div class="ad-item"><b>${p.n}</b><span>${inr(p.p)}</span></div>`).join('')}
-  </div>`;
+  let names=AD_ORDER;
+  if(!names.length){
+    const adCat=SEASON_AD_CAT[season]||'cool';
+    names=P.filter(p=>p.cat===adCat&&p.cond===undefined).sort((a,b)=>b.r-a.r).slice(0,4).map(p=>p.n);
+  }
+  const picks=names.map(n=>P.find(p=>p.n===n)).filter(Boolean);
+  rail.innerHTML=picks.map(p=>card(p,{ad:true})).join('');
+}
+
+// Same season, same 4 products everywhere; /api/ads shuffles their order
+// deterministically per city so the top/bottom ad slots swap city to city.
+async function loadAds(){
+  const season=currentSeason(),code=currentAreaCode();
+  try{
+    const res=await fetch(`/api/ads?season=${encodeURIComponent(season)}&area_code=${encodeURIComponent(code||'')}`);
+    if(!res.ok)throw new Error('ads fetch failed');
+    const data=await res.json();
+    AD_ORDER=data.products||[];
+  }catch(e){ AD_ORDER=[]; /* renderAds() falls back to a client-side pick */ }
+  renderAds();
+}
+
+function currentAreaCode(){
+  const pin=load('seasonmart_profile',{}).pin;
+  const city=CITIES.find(c=>c.pincode===pin);
+  return city?city.code:null;
+}
+
+// The selected delivery city's own local warehouse (from WareHub's shared
+// backend data) — used to highlight exactly the items actually stocked
+// nearby, not just items LocalMesh has ever routed there.
+async function loadCityStock(){
+  const code=currentAreaCode();
+  if(!code){CITY_STOCK=new Set();CITY_NAME='';renderGrid();return}
+  try{
+    const res=await fetch('/api/warehouses/'+encodeURIComponent(code));
+    if(!res.ok)throw new Error('warehouse fetch failed');
+    const data=await res.json();
+    CITY_STOCK=new Set(data.products.map(p=>p.name));
+    CITY_NAME=data.area_name;
+  }catch(e){CITY_STOCK=new Set();CITY_NAME=''}
+  renderGrid();
+}
+
+// Network-wide "available stock" per product: the central warehouse's
+// buffer plus every local warehouse's units, added together — not a
+// static per-product number baked into the catalog.
+async function loadStockTotals(){
+  try{
+    const res=await fetch('/api/stock');
+    if(!res.ok)throw new Error('stock fetch failed');
+    const data=await res.json();
+    STOCK_TOTALS=data.totals||{};
+  }catch(e){ /* keep whatever we last had */ }
+  renderGrid();
 }
 
 // Polls LocalMesh's public returns queue to know which products it has
@@ -279,7 +359,7 @@ function renderCart(){
   const c=cart().filter(x=>P[x.id]);
   $('#cartN').textContent=c.reduce((a,x)=>a+x.q,0);
   let sum=0;
-  $('#cartList').innerHTML=c.length?c.map(x=>{const p=P[x.id];sum+=p.p*x.q;return `<div class="row"><div class="ph"><span>${p.n}</span></div>
+  $('#cartList').innerHTML=c.length?c.map(x=>{const p=P[x.id];sum+=p.p*x.q;return `<div class="row"><div class="ph">${productImg(p.n)}<span>${p.n}</span></div>
    <div class="t">${p.n}<small>${inr(p.p)} each</small><div class="qty"><button data-dec="${x.id}" aria-label="Decrease">-</button>${x.q}<button data-inc="${x.id}" aria-label="Increase">+</button></div></div>
    <button class="x" data-rm="${x.id}" aria-label="Remove">×</button></div>`}).join('')+
    `<div class="tot"><span>Subtotal</span><span>${inr(sum)}</span></div>
@@ -291,7 +371,7 @@ function addCart(id,n=1){const c=cart(),x=c.find(i=>i.id===id);x?x.q+=n:c.push({
 
 function renderOrders(){
   const o=load('seasonmart_orders',[]);
-  const list=o.length?o.slice().reverse().map(x=>`<div class="row"><div class="ph"><span>${x.n}</span></div>
+  const list=o.length?o.slice().reverse().map(x=>`<div class="row"><div class="ph">${productImg(x.n)}<span>${x.n}</span></div>
    <div class="t">${x.n}<small>Qty ${x.q} · ${inr(x.p*x.q)} · ${x.returned?'Return requested':'Delivered'}</small></div>
    ${x.returned?'<span class="rtag">Return requested</span>':`<button class="btn" data-ret="${x.uid}">Return</button>`}</div>`).join('')
    :'<p class="empty">No orders yet.</p>';
@@ -417,13 +497,14 @@ $('#searchForm').onsubmit=e=>{e.preventDefault();query=$('#q').value.trim().toLo
 $('#seasonSel').onchange=e=>{
   save('seasonmart_profile',{...load('seasonmart_profile',{}),season:e.target.value});
   toast(`Season set to ${e.target.options[e.target.selectedIndex].text}.`);
-  renderAds();
+  loadAds();
 };
 
 $('#profForm').onsubmit=e=>{
   e.preventDefault();
   save('seasonmart_profile',{...load('seasonmart_profile',{}),pin:$('#pCity').value});
   renderProfile();renderGrid();$('#profDlg').close();toast('Delivery location saved.');
+  loadCityStock();loadAds();
 };
 
 function finalizeReturn(text){
@@ -482,5 +563,8 @@ $('#retForm').onsubmit=async e=>{
 
 initTheme();
 renderTabs();
-renderGrid();renderCart();renderProfile();loadCities();loadLocalStock();
+renderGrid();renderCart();renderProfile();
+loadCities().then(()=>{loadCityStock();loadAds()});
+loadLocalStock();loadStockTotals();
 setInterval(loadLocalStock,8000);
+setInterval(loadStockTotals,8000);
