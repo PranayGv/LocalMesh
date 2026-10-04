@@ -283,3 +283,8 @@ class StockNotification(ServiceStockResponse):
 class StockCheckRequest(BaseModel):
     product: str = Field(min_length=1)
     area_code: str = Field(min_length=1)
+
+
+class RepairCheckRequest(BaseModel):
+    product: str = Field(min_length=1)
+    area_code: str = Field(min_length=1)

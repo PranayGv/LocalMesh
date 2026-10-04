@@ -16,6 +16,7 @@ from backend.models import (
     MetaResponse,
     ProcessReviewRequest,
     ProcessReviewResponse,
+    RepairCheckRequest,
     RepairNotification,
     ReturnListItem,
     ReturnRecord,
@@ -235,19 +236,43 @@ def ads_eligibility(product: str, season: str = "summer"):
 
 @router.get("/service/repairs", response_model=list[RepairNotification])
 def service_repairs():
-    """Local Brand Center — repair-notification queue. Filed automatically
-    whenever a storefront return is classified as a hardware defect (see
-    submit_return above), most recent first."""
+    """Local Brand Center — repair-notification queue: entries filed
+    automatically whenever a storefront return is classified as a hardware
+    defect (see submit_return above), plus any filed by hand below, most
+    recent first."""
     return service_store.list_repairs()
+
+
+@router.post("/service/repair-check", response_model=RepairNotification)
+def service_repair_check(body: RepairCheckRequest):
+    """Local Brand Center — repair-notification branch, run by hand: staff
+    enter a product and service centre and the page runs the same
+    technician-check / attempt-repair / industry-standard-check /
+    dissatisfaction-routing flow as an automatic defect notification, filing
+    the result in the repair queue with no linked return."""
+    area = mock_data.get_area(body.area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_repair_flow(body.product, body.area_code)
+    notification = RepairNotification(
+        id=uuid.uuid4().hex[:8],
+        submitted_at=datetime.now(timezone.utc).isoformat(),
+        return_id=None,
+        product=body.product,
+        area_code=body.area_code,
+        area_name=area["name"],
+        **result,
+    )
+    service_store.add_repair(notification)
+    return notification
 
 
 @router.post("/service/stock-check", response_model=StockNotification)
 def service_stock_check(body: StockCheckRequest):
-    """Local Brand Center — out-of-stock-notification branch. Triggered by
-    the storefront's "check local brand center" action for a product that
-    isn't in the customer's local stock: looks up the requesting service
-    centre's own local warehouse, then every other local warehouse
-    ("partner shops"), for the same product, and files the result in the
+    """Local Brand Center — out-of-stock-notification branch, run by hand:
+    staff enter a product and service centre and the page looks up that
+    service centre's own local warehouse, then every other local warehouse
+    ("partner shops"), for the same product, filing the result in the
     stock-check queue."""
     area = mock_data.get_area(body.area_code)
     if area is None:
