@@ -77,13 +77,9 @@ function decide(id,dest){const s=st();s[id]={dest,at:new Date().toISOString()};s
 function renderKpi(){
   const R=rets(),s=st(),cf=cfg(),used=localUsed(),pct=Math.round(used/cf.cap*100);
   const today=R.filter(r=>new Date(r.at).toDateString()===new Date().toDateString()).length;
-  const pend=R.filter(r=>!s[r.returnId]).length;
-  const rep=Object.values(s).filter(x=>x.dest==='repair'&&!x.repaired).length;
   const far=Object.values(s).filter(x=>x.dest==='far').length;
   const low=stockList().filter(p=>p.qty<=LOW).length;
   $('#kp').innerHTML=`<div class="k"><small>New returns today</small><b>${today}</b></div>
-  <div class="k"><small>Awaiting decision</small><b>${pend}</b></div>
-  <div class="k"><small>In repair</small><b>${rep}</b></div>
   <div class="k"><small>Sent to far warehouse</small><b>${far}</b></div>
   <div class="k"><small>Low stock products</small><b>${low}</b></div>
   <div class="k"><small>Capacity used (${used.toLocaleString('en-IN')}/${cf.cap.toLocaleString('en-IN')})</small><b>${pct}%</b><div class="bar"><i style="width:${Math.min(pct,100)}%;background:${pct>=90?'#c0392b':'#e8710a'}"></i></div></div>`;
@@ -99,7 +95,7 @@ function seasonBars(){
 
 function viewQueue(){
   const R=rets(),s=st();
-  if(!R.length)return '<div class="p"><p class="empty">No returns yet. Submit one from the store, or open Settings and click "Add demo returns".</p></div>';
+  if(!R.length)return '<div class="p"><p class="empty">No returns yet. Submit one from the store to see it here.</p></div>';
   if(!sel||!R.find(r=>r.returnId===sel))sel=(R.find(r=>!s[r.returnId])||R[0]).returnId;
   const r0=R.find(r=>r.returnId===sel),rec=recommend(r0),done=s[sel];
   const rows=R.map(r=>{const c=classify(r),x=s[r.returnId];return `<tr data-sel="${esc(r.returnId)}" class="${r.returnId===sel?'sel':''}">
@@ -144,20 +140,11 @@ function listView(title,filter,extra){
   return `<div class="p"><h4>${title} (${L.length})</h4>${L.length?`<div class="sc"><table><tr><th>Return</th><th>Product</th><th>Season</th><th>Customer reason</th><th>Date</th><th></th></tr>
    ${L.map(r=>`<tr><td>${esc(r.returnId)}</td><td>${esc(r.product)}</td><td>${esc(r.season)}</td><td>${esc(r.reasonText)}</td><td>${when(s[r.returnId])}</td><td>${extra(r)}</td></tr>`).join('')}</table></div>`:'<p class="empty">Nothing here yet.</p>'}</div>`;
 }
-function viewSet(){
-  const c=cfg();
-  return `<div class="p set"><h4>Warehouse settings</h4>
-   <label>Capacity (units)</label><input id="sCap" type="number" min="1" value="${c.cap}">
-   <div class="acts"><button class="btn p1" data-act="save">Save settings</button><button class="btn" data-act="fill">Fill to near capacity (demo)</button><button class="btn" data-act="resetstock">Reset stock overrides</button></div>
-   <div class="acts"><button class="btn" data-act="demo">Add demo returns</button><button class="btn" data-act="clear">Clear all returns and decisions</button></div></div>`;
-}
-
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
   renderKpi();
   $('#view').innerHTML=tab==='queue'?viewQueue():tab==='inv'?viewInv()
-   :tab==='rep'?listView('Items in repair',x=>x.dest==='repair'&&!x.repaired,r=>`<button class="btn p1" data-fix="${esc(r.returnId)}">Mark repaired</button>`)
-   :tab==='tr'?listView('Sent to far warehouse',x=>x.dest==='far',()=>'Central hub'):viewSet();
+   :listView('Sent to far warehouse',x=>x.dest==='far',()=>'Central hub');
 }
 
 document.addEventListener('click',async e=>{
@@ -185,31 +172,7 @@ document.addEventListener('click',async e=>{
       logAct('stock',p.name+': '+p.qty+' to '+newQty+' units');render();
     }catch(e){toast('Could not update stock.')}
   }
-  else if(d.fix){
-    const s=st(),full=localUsed()>=cfg().cap;
-    s[d.fix]={dest:full?'far':'local',repaired:true,at:new Date().toISOString()};save('warehub_admin',s);logAct('repair','Repaired '+d.fix+(full?' (sent to far warehouse)':' (added to local inventory)'));
-    toast(full?'Repaired, but local warehouse is full. Sent to far warehouse.':'Repaired and added to local inventory.');render();
-  }
   else if(d.sel){sel=d.sel;render()}
-  else if(d.act==='save'){save('warehub_cfg',{cap:+$('#sCap').value||cfg().cap});toast('Settings saved.');render()}
-  else if(d.act==='fill'){save('warehub_cfg',{cap:localUsed()+3});toast('Capacity set to '+(localUsed()+3)+' units. Three more local returns will fill it.');render()}
-  else if(d.act==='resetstock'){
-    try{await api('/warehouses/overrides',{method:'DELETE'});await loadWarehouse();toast('Stock overrides reset.');render()}catch(e){toast('Could not reset stock.')}
-  }
-  else if(d.act==='demo'){
-    const R=load('seasonmart_returns',[]),now=Date.now(),names=stockList().map(p=>p.name);
-    const demo=[['R1023','Strap broke on first use',2200],['R1024','Changed my mind about the style',1800],
-     ['R1025','Dent on the side, arrived damaged',1500],['R1026','Burning smell when switched on',1200],
-     ['R1027','Not as soft as I expected',900],['R1028','Zip is stuck and will not close',700],
-     ['R1029','Does not fit well',540],['R1030','Battery dead after two charges',420]];
-    demo.forEach((a,i)=>{
-      const p=stockList()[i%Math.max(stockList().length,1)]||{name:'Sample item',season:'summer'};
-      if(!R.find(r=>r.returnId===a[0]))R.push({returnId:a[0],product:p.name,season:p.season,category:'',reasonText:a[1],pincode:'',at:new Date(now-a[2]*60000).toISOString()});
-    });
-    R.sort((a,b)=>new Date(a.at)-new Date(b.at));
-    save('seasonmart_returns',R);toast('Demo returns added.');render();
-  }
-  else if(d.act==='clear'){if(confirm('Delete all returns and decisions?')){localStorage.removeItem('seasonmart_returns');localStorage.removeItem('warehub_admin');sel=null;render()}}
 });
 document.addEventListener('input',e=>{if(e.target.id==='invQ'){invQ=e.target.value;invUpdate()}});
 document.addEventListener('change',e=>{

@@ -214,10 +214,9 @@ function productImg(name){
   return `<img src="product_imgs/${slugify(name)}.png" alt="${name}" loading="lazy" onerror="this.remove()">`;
 }
 
-// `ad` renders this as a sponsored placement — a plain small "Ad" label
-// above an otherwise identical card, the way real marketplaces (Amazon,
-// Flipkart) style sponsored listings so they read as genuine products
-// rather than a separate banner.
+// `ad` renders this as a sponsored placement — a bordered, tinted card with
+// a bold "Ad" chip, sized up slightly so it's clearly distinguishable from
+// organic product listings rather than blending in with them.
 function card(p,{ad=false}={}){
   const st=Math.round(p.r);
   const cityHit=CITY_STOCK.has(p.n),retHit=LOCAL_STOCK.has(p.n),inStock=cityHit||retHit;
@@ -273,8 +272,8 @@ function renderGrid(){
 // products in every city for a given season) in the order /api/ads returns.
 // That order is shuffled per city, so the same season advertises the same
 // products everywhere but which ones land where swaps city to city, as a
-// stand-in for local demand ranking. Rendered as regular product cards (see
-// card()'s `ad` option) so they read as real listings, not a banner.
+// stand-in for local demand ranking. Rendered via card()'s `ad` option,
+// which visibly marks them as ads rather than organic listings.
 function renderAds(){
   const rail=$('#adRail');
   if(!rail)return;
