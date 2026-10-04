@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Brand Center — Service Centre Intake</title>
+  <!-- Reuses the admin app's own stylesheet and vendor libs (served from
+       "/", where frontend/ is mounted) so this page looks and behaves like
+       a natural sibling of it rather than a one-off design. -->
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/brandcenter/style.css" />
+  <script src="/vendor/chart.umd.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+</head>
+<body>
+  <div class="wms">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">LM</span>
+        <div class="brand-text">
+          <h1>Local Brand Center</h1>
+          <p>Service Centre Intake</p>
+        </div>
+      </div>
+      <div class="topbar-stats">
+        <div class="tstat">
+          <span class="tstat-value" id="stat-repairs">0</span>
+          <span class="tstat-label">Repair Notices</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-repair-local">0</span>
+          <span class="tstat-label">Local WH</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-repair-hub">0</span>
+          <span class="tstat-label">Central Hub</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-stock">0</span>
+          <span class="tstat-label">Stock Checks</span>
+        </div>
+        <div class="tstat">
+          <span class="tstat-value" id="stat-stock-flag">0</span>
+          <span class="tstat-label">Unavailable</span>
+        </div>
+        <div class="tstat live-stat">
+          <span class="tstat-value"><span class="live-dot"></span>LIVE</span>
+          <span class="tstat-label">Polling /api/service</span>
+        </div>
+      </div>
+      <nav class="app-links">
+        <a href="/" target="_blank" rel="noopener">Returns admin ↗</a>
+        <a href="/warehouse/" target="_blank" rel="noopener">WareHub admin ↗</a>
+        <a href="/shop/" target="_blank" rel="noopener">SeasonMart store ↗</a>
+      </nav>
+    </header>
+
+    <nav class="view-tabs" id="view-tabs">
+      <button class="vt-btn on" data-view="repair">Repair Notifications</button>
+      <button class="vt-btn" data-view="stock">Out of Stock Notifications</button>
+    </nav>
+
+    <div class="layout">
+      <aside class="queue-pane">
+        <div class="pane-view" id="repair-view">
+          <div class="pane-head">
+            <h2>Repair Notifications</h2>
+            <span class="pane-hint">Filed automatically from hardware-defect returns</span>
+            <button class="clear-queue-btn" id="clear-queue" title="Clear all service notifications">Clear Queue</button>
+          </div>
+          <div class="queue-list" id="repair-list"></div>
+          <div class="empty-state" id="repair-empty">
+            <p class="empty-title">No repair notifications yet</p>
+            <p class="empty-sub">Submit a return on the storefront with a hardware-fault review (e.g. "it stopped working and there's a burning smell") and it will appear here automatically.</p>
+            <a class="empty-link" href="/shop/" target="_blank" rel="noopener">Open SeasonMart →</a>
+          </div>
+        </div>
+
+        <div class="pane-view" id="stock-view" hidden>
+          <div class="pane-head">
+            <h2>Out of Stock Notifications</h2>
+            <span class="pane-hint">Filed when a shopper checks local brand center stock</span>
+          </div>
+          <div class="queue-list" id="stock-list"></div>
+          <div class="empty-state" id="stock-empty">
+            <p class="empty-title">No stock checks yet</p>
+            <p class="empty-sub">On the storefront, a product that isn't in local stock shows a "Check local brand center" button — use it and the result will appear here automatically.</p>
+            <a class="empty-link" href="/shop/" target="_blank" rel="noopener">Open SeasonMart →</a>
+          </div>
+        </div>
+      </aside>
+
+      <main class="detail-pane">
+        <div class="detail-placeholder" id="detail-placeholder">
+          <p>Select a repair notification from the queue to view its service centre intake flow.</p>
+        </div>
+        <div class="detail-content" id="detail-content" hidden></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/brandcenter/app.js"></script>
+</body>
+</html>

@@ -226,6 +226,10 @@ function card(p,{ad=false}={}){
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
   const total=STOCK_TOTALS[p.n];
   const netStock=total!==undefined?`<div class="netstock">Available stock (local + central warehouses): <b>${total.toLocaleString('en-IN')}</b></div>`:'';
+  // Not in this city's local/returned stock: offer a live check against the
+  // Local Brand Center's own warehouse network (distinct from the network
+  // stock total above) instead of just falling back to standard shipping.
+  const brandCheck=inStock?'':`<button class="btn ghost brand-check" data-checklocal="${p.id}">Check local brand center</button><div class="brand-check-result"></div>`;
   return `<article class="card${inStock?' local-stock':''}${ad?' ad-card':''}">
     ${ad?'<p class="ad-flag" aria-label="Advertisement">Ad &middot; seasonmart.example</p>':''}
     <div class="ph">${productImg(p.n)}<span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
@@ -237,7 +241,41 @@ function card(p,{ad=false}={}){
     ${netStock}
     <div class="low">${p.left<=6?'Only '+p.left+' left in stock':''}</div>
     <div class="acts"><button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button></div>
+    ${brandCheck}
   </article>`;
+}
+
+// Live check against the Local Brand Center's warehouse network for a
+// product not in this city's local/returned stock. Success places the
+// order from whichever local warehouse (this city's or a partner city's)
+// actually has it; failure leaves the normal Buy now/Add to cart path as
+// the only way to order (via standard central-hub shipping).
+async function checkLocalBrandCenter(id,btn){
+  const p=P.find(x=>x.id===id);if(!p)return;
+  const areaCode=currentAreaCode();
+  if(!areaCode){toast('Set your delivery location first.');$('#locBtn').click();return}
+  const out=btn.nextElementSibling;
+  btn.disabled=true;btn.textContent='Checking local brand center…';
+  out.className='brand-check-result';out.textContent='';
+  try{
+    const res=await fetch('/api/service/stock-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product:p.n,area_code:areaCode})});
+    if(!res.ok)throw new Error('lookup failed');
+    const data=await res.json();
+    if(data.in_stock){
+      out.className='brand-check-result ok';
+      out.textContent=`Order placed — in stock at the ${data.found_at.area_name} local brand center. Will be delivered soon.`;
+      toast('Order placed — local brand center has stock.');
+    }else{
+      out.className='brand-check-result bad';
+      out.textContent="Couldn't place order — unavailable at any local brand center right now.";
+      toast('Unavailable at any local brand center.');
+    }
+  }catch(e){
+    out.className='brand-check-result bad';
+    out.textContent='Could not reach the local brand center. Try again.';
+  }finally{
+    btn.disabled=false;btn.textContent='Check local brand center';
+  }
 }
 
 // LocalMesh-routed items (demand-driven, climate-fit, or repaired defects
@@ -455,6 +493,7 @@ document.addEventListener('click',e=>{
   if(d.close!==undefined)t.closest('dialog').close();
   if(d.add){addCart(+d.add);toast('Added to cart.')}
   if(d.buy){placeOrder([{id:+d.buy,q:1}])}
+  if(d.checklocal){checkLocalBrandCenter(+d.checklocal,t)}
   if(d.inc)addCart(+d.inc);
   if(d.dec)addCart(+d.dec,-1);
   if(d.rm){save('seasonmart_cart',cart().filter(i=>i.id!==+d.rm));renderCart()}

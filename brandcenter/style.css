@@ -1,0 +1,21 @@
+/* Small additions on top of the shared /styles.css (the Returns admin
+   app's stylesheet) — just the bits this page needs that it doesn't
+   already define. */
+
+.gate-row.gate-skip .gate-icon {
+  background: var(--text-muted);
+}
+
+.gate-row.gate-skip .gate-title,
+.gate-row.gate-skip .gate-reason {
+  opacity: 0.75;
+}
+
+.detail-sub code {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend import ads, decision, mock_data, returns_store, warehouses
+from backend import ads, decision, mock_data, returns_store, service_store, warehouses
 from backend.models import (
     AdEligibilityResponse,
     AdPlacement,
@@ -16,9 +16,12 @@ from backend.models import (
     MetaResponse,
     ProcessReviewRequest,
     ProcessReviewResponse,
+    RepairNotification,
     ReturnListItem,
     ReturnRecord,
     ReturnSubmission,
+    StockCheckRequest,
+    StockNotification,
     StockSummary,
     WarehouseOverrideRequest,
     WarehouseSummary,
@@ -110,6 +113,26 @@ def submit_return(body: ReturnSubmission, request: Request):
         status_label=result["status_label"],
     )
     returns_store.add_return(record)
+
+    # A hardware-defect return is also a repair notification at the Local
+    # Brand Center: run the service-centre repair flow for the same
+    # (product, area) and file it in that queue, linked back to this return.
+    if record.defect_branch is not None:
+        repair_result = decision.evaluate_repair_flow(
+            body.product, area["code"], body.season, body.suited_climates
+        )
+        service_store.add_repair(
+            RepairNotification(
+                id=uuid.uuid4().hex[:8],
+                submitted_at=record.submitted_at,
+                return_id=record.id,
+                product=body.product,
+                area_code=area["code"],
+                area_name=area["name"],
+                **repair_result,
+            )
+        )
+
     return record
 
 
@@ -208,3 +231,47 @@ def ads_eligibility(product: str, season: str = "summer"):
     if result is None:
         raise HTTPException(status_code=404, detail="Product not found in catalog")
     return result
+
+
+@router.get("/service/repairs", response_model=list[RepairNotification])
+def service_repairs():
+    """Local Brand Center — repair-notification queue. Filed automatically
+    whenever a storefront return is classified as a hardware defect (see
+    submit_return above), most recent first."""
+    return service_store.list_repairs()
+
+
+@router.post("/service/stock-check", response_model=StockNotification)
+def service_stock_check(body: StockCheckRequest):
+    """Local Brand Center — out-of-stock-notification branch. Triggered by
+    the storefront's "check local brand center" action for a product that
+    isn't in the customer's local stock: looks up the requesting service
+    centre's own local warehouse, then every other local warehouse
+    ("partner shops"), for the same product, and files the result in the
+    stock-check queue."""
+    area = mock_data.get_area(body.area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_local_stock_lookup(body.product, body.area_code)
+    notification = StockNotification(
+        id=uuid.uuid4().hex[:8],
+        submitted_at=datetime.now(timezone.utc).isoformat(),
+        product=body.product,
+        area_code=body.area_code,
+        area_name=area["name"],
+        **result,
+    )
+    service_store.add_stock(notification)
+    return notification
+
+
+@router.get("/service/stock-checks", response_model=list[StockNotification])
+def service_stock_checks():
+    """Local Brand Center — stock-check queue, most recent first."""
+    return service_store.list_stocks()
+
+
+@router.delete("/service/notifications")
+def clear_service_notifications():
+    service_store.clear()
+    return {"cleared": True}

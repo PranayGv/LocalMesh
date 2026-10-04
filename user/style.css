@@ -97,6 +97,10 @@ button { cursor: pointer; color: inherit; }
 .btn { border: 1px solid var(--teal); background: var(--card); color: var(--teal); border-radius: 6px; padding: .5rem .4rem; font-weight: 600; transition: all .2s ease; }
 .btn.buy { background: var(--org); border-color: var(--org); color: #fff; }
 .btn:hover { filter: brightness(.94); }
+.btn.brand-check { width: 100%; margin-top: .45rem; font-size: .82rem; }
+.brand-check-result { font-size: .78rem; font-weight: 600; margin-top: .35rem; line-height: 1.4; min-height: 0; }
+.brand-check-result.ok { color: var(--ok); }
+.brand-check-result.bad { color: var(--red); }
 .ft { background: var(--dark); color: #cfe0dd; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.4rem; font-size: .85rem; }
 dialog { border: 0; border-radius: 10px; padding: 1.3rem; width: min(92vw, 34rem); background: var(--card); color: var(--ink); margin: auto; }
 dialog::backdrop { background: rgba(10, 20, 30, .55); }
