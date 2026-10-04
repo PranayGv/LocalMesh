@@ -14,6 +14,7 @@ from backend.models import (
     ClassifyRequest,
     DefectBranch,
     MetaResponse,
+    OrderRequest,
     ProcessReviewRequest,
     ProcessReviewResponse,
     RepairCheckRequest,
@@ -207,6 +208,23 @@ def stock_summary():
     totals = central + every local warehouse's units, per product — the
     "available stock" figure SeasonMart shows on each product card."""
     return StockSummary(central=warehouses.central_stock(), totals=warehouses.total_stock_by_product())
+
+
+@router.post("/orders", response_model=StockSummary)
+def place_order(body: OrderRequest):
+    """Checkout: draws each ordered item down from the central warehouse's
+    buffer, so "available stock" actually moves when a customer buys,
+    instead of staying a static, order-independent number. Returns the
+    updated stock summary so the storefront can refresh immediately."""
+    for item in body.items:
+        warehouses.record_purchase(item.product, item.qty)
+    return StockSummary(central=warehouses.central_stock(), totals=warehouses.total_stock_by_product())
+
+
+@router.delete("/orders")
+def clear_orders():
+    warehouses.clear_purchases()
+    return {"cleared": True}
 
 
 @router.get("/ads", response_model=AdPlacement)

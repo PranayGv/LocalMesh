@@ -376,10 +376,17 @@ function renderOrders(){
    :'<p class="empty">No orders yet.</p>';
   $('#ordList').innerHTML=list+(o.length?'<button class="btn ghost" style="width:100%;margin-top:.8rem" data-clear-orders>Clear all orders &amp; returns</button>':'');
 }
-function placeOrder(items){
+async function placeOrder(items){
   const o=load('seasonmart_orders',[]);
   items.forEach((x,i)=>{const p=P[x.id];o.push({uid:Date.now()+i,pid:p.id,n:p.n,p:p.p,q:x.q,cat:p.cat,cl:p.cl,returned:false})});
   save('seasonmart_orders',o);toast('Order placed. Delivery by '+eta()+'.');
+  // Draw the purchased units down from the central warehouse buffer so
+  // "available stock" on the product card actually moves after checkout.
+  try{
+    await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items:items.map(x=>({product:P[x.id].n,qty:x.q}))})});
+    loadStockTotals();
+  }catch(e){ /* stock totals just won't refresh immediately */ }
 }
 
 async function loadCities(){

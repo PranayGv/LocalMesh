@@ -169,6 +169,15 @@ class WarehouseOverrideRequest(BaseModel):
     new_name: Optional[str] = None
 
 
+class OrderItem(BaseModel):
+    product: str = Field(min_length=1)
+    qty: int = Field(gt=0)
+
+
+class OrderRequest(BaseModel):
+    items: list[OrderItem] = Field(min_length=1)
+
+
 class AdPlacement(BaseModel):
     season: str
     area_code: str

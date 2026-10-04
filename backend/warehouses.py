@@ -72,6 +72,12 @@ AD_SEASON_PRODUCTS = {
 # (area_code, original_product_name) -> {"name"?, "qty"?, "price"?}.
 _overrides: dict[tuple[str, str], dict] = {}
 
+# Units sold through SeasonMart checkout (POST /api/orders), keyed by
+# product name. Subtracted from the central warehouse's buffer so placing
+# an order actually moves the "available stock" figure the storefront
+# shows, instead of that number being a static, order-independent display.
+_purchased: dict[str, int] = {}
+
 
 def _seeded_rng(key: str) -> random.Random:
     seed = int(hashlib.sha256(key.encode()).hexdigest(), 16) % (2**32)
@@ -143,12 +149,27 @@ def all_warehouses() -> list[dict]:
 
 
 def central_stock() -> dict[str, int]:
-    """Deterministic central-hub buffer stock for every catalog product."""
+    """Central-hub buffer stock for every catalog product: a deterministic
+    base quantity minus whatever's been sold through checkout so far."""
     out = {}
     for name, *_rest in CATALOG:
         rng = _seeded_rng(f"centralwh-qty|{name}")
-        out[name] = rng.randint(40, 150)
+        base = rng.randint(40, 150)
+        out[name] = max(0, base - _purchased.get(name, 0))
     return out
+
+
+def record_purchase(product: str, qty: int) -> None:
+    """Record units sold through SeasonMart checkout, drawn down from the
+    central warehouse's buffer (local-warehouse stock is managed separately
+    by WareHub and isn't touched by a regular retail sale)."""
+    if qty <= 0:
+        return
+    _purchased[product] = _purchased.get(product, 0) + qty
+
+
+def clear_purchases() -> None:
+    _purchased.clear()
 
 
 def total_stock_by_product() -> dict[str, int]:
