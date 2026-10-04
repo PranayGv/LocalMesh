@@ -11,6 +11,7 @@ from backend.routes import router
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 STOREFRONT_DIR = Path(__file__).resolve().parent.parent / "user"
 WAREHOUSE_DIR = Path(__file__).resolve().parent.parent / "localwarehouse"
+BRAND_CENTER_DIR = Path(__file__).resolve().parent.parent / "brandcenter"
 
 
 @asynccontextmanager
@@ -34,4 +35,5 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 app.mount("/shop", StaticFiles(directory=STOREFRONT_DIR, html=True), name="storefront")
 app.mount("/warehouse", StaticFiles(directory=WAREHOUSE_DIR, html=True), name="warehouse")
+app.mount("/brandcenter", StaticFiles(directory=BRAND_CENTER_DIR, html=True), name="brandcenter")
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

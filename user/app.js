@@ -192,7 +192,7 @@ let retStep='review',chosenResolution=null;
 // /api/stock), and the season/city ad order (from /api/ads) — all read
 // from the same backend data WareHub's admin app and the ops dashboard
 // use, so nothing here is a disconnected, hard-coded number.
-let CITY_STOCK=new Set(),CITY_NAME='',STOCK_TOTALS={},AD_ORDER=[];
+let CITY_STOCK=new Set(),CITY_NAME='',STOCK_TOTALS={},PURCHASED={},AD_ORDER=[];
 const eta=()=>{const d=new Date();d.setDate(d.getDate()+3);return d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})};
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3000)};
 
@@ -214,10 +214,9 @@ function productImg(name){
   return `<img src="product_imgs/${slugify(name)}.png" alt="${name}" loading="lazy" onerror="this.remove()">`;
 }
 
-// `ad` renders this as a sponsored placement — a plain small "Ad" label
-// above an otherwise identical card, the way real marketplaces (Amazon,
-// Flipkart) style sponsored listings so they read as genuine products
-// rather than a separate banner.
+// `ad` renders this as a sponsored placement — a bordered, tinted card with
+// a bold "Ad" chip, sized up slightly so it's clearly distinguishable from
+// organic product listings rather than blending in with them.
 function card(p,{ad=false}={}){
   const st=Math.round(p.r);
   const cityHit=CITY_STOCK.has(p.n),retHit=LOCAL_STOCK.has(p.n),inStock=cityHit||retHit;
@@ -227,6 +226,17 @@ function card(p,{ad=false}={}){
   const climateBadge=`<span class="climate-badge ${climateClass(p.cl)}" title="Climate suitability">${climateLabel(p.cl)}</span>`;
   const total=STOCK_TOTALS[p.n];
   const netStock=total!==undefined?`<div class="netstock">Available stock (local + central warehouses): <b>${total.toLocaleString('en-IN')}</b></div>`:'';
+  // p.left is the catalog's starting "units left" countdown; purchases made
+  // through checkout (tracked server-side, shared across every device) are
+  // subtracted from it so this figure actually moves, same as the network
+  // stock total above.
+  const left=Math.max(0,p.left-(PURCHASED[p.n]||0));
+  const outOfStock=left<=0;
+  const lowStock=outOfStock?'Out of stock':left<=6?'Only '+left+' left in stock':'';
+  // Out of stock here just means SeasonMart's own countdown is empty — a
+  // nearby Local Brand Center's warehouse (a separate stock pool) may
+  // still have it, so offer a search instead of a dead end.
+  const brandSearch=outOfStock?`<button class="btn ghost brand-search" data-search="${p.id}">Search local brand centers</button><div class="brand-search-result"></div>`:'';
   return `<article class="card${inStock?' local-stock':''}${ad?' ad-card':''}">
     ${ad?'<p class="ad-flag" aria-label="Advertisement">Ad &middot; seasonmart.example</p>':''}
     <div class="ph">${productImg(p.n)}<span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
@@ -236,9 +246,40 @@ function card(p,{ad=false}={}){
     <div class="price">${inr(p.p)}<s>${inr(p.m)}</s></div>
     <div class="del">${delivery}</div>
     ${netStock}
-    <div class="low">${p.left<=6?'Only '+p.left+' left in stock':''}</div>
-    <div class="acts"><button class="btn" data-add="${p.id}">Add to cart</button><button class="btn buy" data-buy="${p.id}">Buy now</button></div>
+    <div class="low">${lowStock}</div>
+    <div class="acts"><button class="btn" data-add="${p.id}" ${outOfStock?'disabled':''}>Add to cart</button><button class="btn buy" data-buy="${p.id}" ${outOfStock?'disabled':''}>Buy now</button></div>
+    ${brandSearch}
   </article>`;
+}
+
+// Read-only lookup against the Local Brand Center's warehouse network for
+// an out-of-stock product — shows where it's actually available, doesn't
+// place an order or file anything in the Brand Center's own queue (that
+// stays staff-driven; see /brandcenter/).
+async function searchBrandCenters(id,btn){
+  const p=P.find(x=>x.id===id);if(!p)return;
+  const areaCode=currentAreaCode();
+  if(!areaCode){toast('Set your delivery location first.');$('#locBtn').click();return}
+  const out=btn.nextElementSibling;
+  btn.disabled=true;btn.textContent='Searching…';
+  out.className='brand-search-result';out.textContent='';
+  try{
+    const res=await fetch(`/api/service/stock-search?product=${encodeURIComponent(p.n)}&area_code=${encodeURIComponent(areaCode)}`);
+    if(!res.ok)throw new Error('search failed');
+    const data=await res.json();
+    if(data.in_stock){
+      out.className='brand-search-result ok';
+      out.textContent=`Available at the ${data.found_at.area_name} local brand center (${data.found_at.qty} units).`;
+    }else{
+      out.className='brand-search-result bad';
+      out.textContent='No local brand center has stock right now.';
+    }
+  }catch(e){
+    out.className='brand-search-result bad';
+    out.textContent='Could not reach the local brand center. Try again.';
+  }finally{
+    btn.disabled=false;btn.textContent='Search local brand centers';
+  }
 }
 
 // LocalMesh-routed items (demand-driven, climate-fit, or repaired defects
@@ -273,8 +314,8 @@ function renderGrid(){
 // products in every city for a given season) in the order /api/ads returns.
 // That order is shuffled per city, so the same season advertises the same
 // products everywhere but which ones land where swaps city to city, as a
-// stand-in for local demand ranking. Rendered as regular product cards (see
-// card()'s `ad` option) so they read as real listings, not a banner.
+// stand-in for local demand ranking. Rendered via card()'s `ad` option,
+// which visibly marks them as ads rather than organic listings.
 function renderAds(){
   const rail=$('#adRail');
   if(!rail)return;
@@ -325,13 +366,17 @@ async function loadCityStock(){
 
 // Network-wide "available stock" per product: the central warehouse's
 // buffer plus every local warehouse's units, added together — not a
-// static per-product number baked into the catalog.
+// static per-product number baked into the catalog. Asks for every
+// product in the catalog by name (not just the curated subset the
+// backend defaults to) so every card gets a live figure.
 async function loadStockTotals(){
   try{
-    const res=await fetch('/api/stock');
+    const names=P.map(p=>encodeURIComponent(p.n)).join(',');
+    const res=await fetch('/api/stock?products='+names);
     if(!res.ok)throw new Error('stock fetch failed');
     const data=await res.json();
     STOCK_TOTALS=data.totals||{};
+    PURCHASED=data.purchased||{};
   }catch(e){ /* keep whatever we last had */ }
   renderGrid();
 }
@@ -377,10 +422,17 @@ function renderOrders(){
    :'<p class="empty">No orders yet.</p>';
   $('#ordList').innerHTML=list+(o.length?'<button class="btn ghost" style="width:100%;margin-top:.8rem" data-clear-orders>Clear all orders &amp; returns</button>':'');
 }
-function placeOrder(items){
+async function placeOrder(items){
   const o=load('seasonmart_orders',[]);
   items.forEach((x,i)=>{const p=P[x.id];o.push({uid:Date.now()+i,pid:p.id,n:p.n,p:p.p,q:x.q,cat:p.cat,cl:p.cl,returned:false})});
   save('seasonmart_orders',o);toast('Order placed. Delivery by '+eta()+'.');
+  // Draw the purchased units down from the central warehouse buffer so
+  // "available stock" on the product card actually moves after checkout.
+  try{
+    await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items:items.map(x=>({product:P[x.id].n,qty:x.q}))})});
+    loadStockTotals();
+  }catch(e){ /* stock totals just won't refresh immediately */ }
 }
 
 async function loadCities(){
@@ -456,6 +508,7 @@ document.addEventListener('click',e=>{
   if(d.close!==undefined)t.closest('dialog').close();
   if(d.add){addCart(+d.add);toast('Added to cart.')}
   if(d.buy){placeOrder([{id:+d.buy,q:1}])}
+  if(d.search){searchBrandCenters(+d.search,t)}
   if(d.inc)addCart(+d.inc);
   if(d.dec)addCart(+d.dec,-1);
   if(d.rm){save('seasonmart_cart',cart().filter(i=>i.id!==+d.rm));renderCart()}

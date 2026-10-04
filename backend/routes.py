@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend import ads, decision, mock_data, returns_store, warehouses
+from backend import ads, decision, mock_data, returns_store, service_store, warehouses
 from backend.models import (
     AdEligibilityResponse,
     AdPlacement,
@@ -14,11 +14,17 @@ from backend.models import (
     ClassifyRequest,
     DefectBranch,
     MetaResponse,
+    OrderRequest,
     ProcessReviewRequest,
     ProcessReviewResponse,
+    RepairCheckRequest,
+    RepairNotification,
     ReturnListItem,
     ReturnRecord,
     ReturnSubmission,
+    ServiceStockResponse,
+    StockCheckRequest,
+    StockNotification,
     StockSummary,
     WarehouseOverrideRequest,
     WarehouseSummary,
@@ -110,6 +116,26 @@ def submit_return(body: ReturnSubmission, request: Request):
         status_label=result["status_label"],
     )
     returns_store.add_return(record)
+
+    # A hardware-defect return is also a repair notification at the Local
+    # Brand Center: run the service-centre repair flow for the same
+    # (product, area) and file it in that queue, linked back to this return.
+    if record.defect_branch is not None:
+        repair_result = decision.evaluate_repair_flow(
+            body.product, area["code"], body.season, body.suited_climates
+        )
+        service_store.add_repair(
+            RepairNotification(
+                id=uuid.uuid4().hex[:8],
+                submitted_at=record.submitted_at,
+                return_id=record.id,
+                product=body.product,
+                area_code=area["code"],
+                area_name=area["name"],
+                **repair_result,
+            )
+        )
+
     return record
 
 
@@ -178,11 +204,36 @@ def clear_warehouse_overrides():
 
 
 @router.get("/stock", response_model=StockSummary)
-def stock_summary():
+def stock_summary(products: str = ""):
     """Network-wide stock: the central warehouse's buffer, plus
     totals = central + every local warehouse's units, per product — the
-    "available stock" figure SeasonMart shows on each product card."""
+    "available stock" figure SeasonMart shows on each product card.
+    Defaults to the curated catalog (~23 items); pass a comma-separated
+    `products` list (e.g. SeasonMart's full ~80-item catalog) to get a
+    figure for every one of them, not just the curated subset."""
+    names = [p for p in (name.strip() for name in products.split(",")) if p] or None
+    return StockSummary(
+        central=warehouses.central_stock(names),
+        totals=warehouses.total_stock_by_product(names),
+        purchased=warehouses.purchased_for(names) if names else {},
+    )
+
+
+@router.post("/orders", response_model=StockSummary)
+def place_order(body: OrderRequest):
+    """Checkout: draws each ordered item down from the central warehouse's
+    buffer, so "available stock" actually moves when a customer buys,
+    instead of staying a static, order-independent number. Returns the
+    updated stock summary so the storefront can refresh immediately."""
+    for item in body.items:
+        warehouses.record_purchase(item.product, item.qty)
     return StockSummary(central=warehouses.central_stock(), totals=warehouses.total_stock_by_product())
+
+
+@router.delete("/orders")
+def clear_orders():
+    warehouses.clear_purchases()
+    return {"cleared": True}
 
 
 @router.get("/ads", response_model=AdPlacement)
@@ -208,3 +259,86 @@ def ads_eligibility(product: str, season: str = "summer"):
     if result is None:
         raise HTTPException(status_code=404, detail="Product not found in catalog")
     return result
+
+
+@router.get("/service/stock-search", response_model=ServiceStockResponse)
+def service_stock_search(product: str, area_code: str):
+    """Storefront-facing, read-only lookup for an out-of-stock product:
+    runs the same local-warehouse-then-partner-shops check as the manual
+    stock-check below, but doesn't file anything in the Local Brand
+    Center's queue — that queue stays staff-driven. Lets a shopper see
+    whether a nearby local brand center has it without an operator
+    needing to run the check for them."""
+    area = mock_data.get_area(area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_local_stock_lookup(product, area_code)
+    return ServiceStockResponse(product=product, area_code=area_code, area_name=area["name"], **result)
+
+
+@router.get("/service/repairs", response_model=list[RepairNotification])
+def service_repairs():
+    """Local Brand Center — repair-notification queue: entries filed
+    automatically whenever a storefront return is classified as a hardware
+    defect (see submit_return above), plus any filed by hand below, most
+    recent first."""
+    return service_store.list_repairs()
+
+
+@router.post("/service/repair-check", response_model=RepairNotification)
+def service_repair_check(body: RepairCheckRequest):
+    """Local Brand Center — repair-notification branch, run by hand: staff
+    enter a product and service centre and the page runs the same
+    technician-check / attempt-repair / industry-standard-check /
+    dissatisfaction-routing flow as an automatic defect notification, filing
+    the result in the repair queue with no linked return."""
+    area = mock_data.get_area(body.area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_repair_flow(body.product, body.area_code)
+    notification = RepairNotification(
+        id=uuid.uuid4().hex[:8],
+        submitted_at=datetime.now(timezone.utc).isoformat(),
+        return_id=None,
+        product=body.product,
+        area_code=body.area_code,
+        area_name=area["name"],
+        **result,
+    )
+    service_store.add_repair(notification)
+    return notification
+
+
+@router.post("/service/stock-check", response_model=StockNotification)
+def service_stock_check(body: StockCheckRequest):
+    """Local Brand Center — out-of-stock-notification branch, run by hand:
+    staff enter a product and service centre and the page looks up that
+    service centre's own local warehouse, then every other local warehouse
+    ("partner shops"), for the same product, filing the result in the
+    stock-check queue."""
+    area = mock_data.get_area(body.area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_local_stock_lookup(body.product, body.area_code)
+    notification = StockNotification(
+        id=uuid.uuid4().hex[:8],
+        submitted_at=datetime.now(timezone.utc).isoformat(),
+        product=body.product,
+        area_code=body.area_code,
+        area_name=area["name"],
+        **result,
+    )
+    service_store.add_stock(notification)
+    return notification
+
+
+@router.get("/service/stock-checks", response_model=list[StockNotification])
+def service_stock_checks():
+    """Local Brand Center — stock-check queue, most recent first."""
+    return service_store.list_stocks()
+
+
+@router.delete("/service/notifications")
+def clear_service_notifications():
+    service_store.clear()
+    return {"cleared": True}

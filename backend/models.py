@@ -160,6 +160,7 @@ class WarehouseSummary(BaseModel):
 class StockSummary(BaseModel):
     central: dict[str, int]
     totals: dict[str, int]
+    purchased: dict[str, int] = {}
 
 
 class WarehouseOverrideRequest(BaseModel):
@@ -167,6 +168,15 @@ class WarehouseOverrideRequest(BaseModel):
     qty: Optional[int] = Field(default=None, ge=0)
     price: Optional[int] = Field(default=None, ge=0)
     new_name: Optional[str] = None
+
+
+class OrderItem(BaseModel):
+    product: str = Field(min_length=1)
+    qty: int = Field(gt=0)
+
+
+class OrderRequest(BaseModel):
+    items: list[OrderItem] = Field(min_length=1)
 
 
 class AdPlacement(BaseModel):
@@ -227,3 +237,64 @@ class AdEligibilityResponse(BaseModel):
     gates: AdEligibilityGates
     eligible: bool
     cities: list[AdEligibilityCity]
+
+
+class TechnicianCheck(BaseModel):
+    available: bool
+    reason: str
+
+
+class RepairAttempt(BaseModel):
+    attempted: bool
+    passed: Optional[bool] = None
+    reason: str
+
+
+class ServiceRepairResponse(BaseModel):
+    product: str
+    area_code: str
+    area_name: str
+    technician_check: TechnicianCheck
+    repair_attempt: RepairAttempt
+    dissatisfaction_check: Optional[DissatisfactionBranch] = None
+    route: Literal["local_warehouse", "central_hub"]
+    route_reason: str
+
+
+class RepairNotification(ServiceRepairResponse):
+    id: str
+    submitted_at: str
+    return_id: Optional[str] = None
+
+
+class StockMatch(BaseModel):
+    area_code: str
+    area_name: str
+    qty: int
+
+
+class ServiceStockResponse(BaseModel):
+    product: str
+    area_code: str
+    area_name: str
+    local_qty: int
+    partner_matches: list[StockMatch]
+    found_at: Optional[StockMatch] = None
+    in_stock: bool
+    route: Literal["dispatch", "flag_storefront"]
+    route_reason: str
+
+
+class StockNotification(ServiceStockResponse):
+    id: str
+    submitted_at: str
+
+
+class StockCheckRequest(BaseModel):
+    product: str = Field(min_length=1)
+    area_code: str = Field(min_length=1)
+
+
+class RepairCheckRequest(BaseModel):
+    product: str = Field(min_length=1)
+    area_code: str = Field(min_length=1)
