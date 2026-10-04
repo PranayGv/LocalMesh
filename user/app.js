@@ -233,6 +233,10 @@ function card(p,{ad=false}={}){
   const left=Math.max(0,p.left-(PURCHASED[p.n]||0));
   const outOfStock=left<=0;
   const lowStock=outOfStock?'Out of stock':left<=6?'Only '+left+' left in stock':'';
+  // Out of stock here just means SeasonMart's own countdown is empty — a
+  // nearby Local Brand Center's warehouse (a separate stock pool) may
+  // still have it, so offer a search instead of a dead end.
+  const brandSearch=outOfStock?`<button class="btn ghost brand-search" data-search="${p.id}">Search local brand centers</button><div class="brand-search-result"></div>`:'';
   return `<article class="card${inStock?' local-stock':''}${ad?' ad-card':''}">
     ${ad?'<p class="ad-flag" aria-label="Advertisement">Ad &middot; seasonmart.example</p>':''}
     <div class="ph">${productImg(p.n)}<span>${p.n}</span>${p.cond?`<b class="tag">${p.cond}</b>`:`<b class="off">${off(p)}% off</b>`}${inStock?'<b class="loc">Local stock</b>':''}</div>
@@ -244,7 +248,38 @@ function card(p,{ad=false}={}){
     ${netStock}
     <div class="low">${lowStock}</div>
     <div class="acts"><button class="btn" data-add="${p.id}" ${outOfStock?'disabled':''}>Add to cart</button><button class="btn buy" data-buy="${p.id}" ${outOfStock?'disabled':''}>Buy now</button></div>
+    ${brandSearch}
   </article>`;
+}
+
+// Read-only lookup against the Local Brand Center's warehouse network for
+// an out-of-stock product — shows where it's actually available, doesn't
+// place an order or file anything in the Brand Center's own queue (that
+// stays staff-driven; see /brandcenter/).
+async function searchBrandCenters(id,btn){
+  const p=P.find(x=>x.id===id);if(!p)return;
+  const areaCode=currentAreaCode();
+  if(!areaCode){toast('Set your delivery location first.');$('#locBtn').click();return}
+  const out=btn.nextElementSibling;
+  btn.disabled=true;btn.textContent='Searching…';
+  out.className='brand-search-result';out.textContent='';
+  try{
+    const res=await fetch(`/api/service/stock-search?product=${encodeURIComponent(p.n)}&area_code=${encodeURIComponent(areaCode)}`);
+    if(!res.ok)throw new Error('search failed');
+    const data=await res.json();
+    if(data.in_stock){
+      out.className='brand-search-result ok';
+      out.textContent=`Available at the ${data.found_at.area_name} local brand center (${data.found_at.qty} units).`;
+    }else{
+      out.className='brand-search-result bad';
+      out.textContent='No local brand center has stock right now.';
+    }
+  }catch(e){
+    out.className='brand-search-result bad';
+    out.textContent='Could not reach the local brand center. Try again.';
+  }finally{
+    btn.disabled=false;btn.textContent='Search local brand centers';
+  }
 }
 
 // LocalMesh-routed items (demand-driven, climate-fit, or repaired defects
@@ -473,6 +508,7 @@ document.addEventListener('click',e=>{
   if(d.close!==undefined)t.closest('dialog').close();
   if(d.add){addCart(+d.add);toast('Added to cart.')}
   if(d.buy){placeOrder([{id:+d.buy,q:1}])}
+  if(d.search){searchBrandCenters(+d.search,t)}
   if(d.inc)addCart(+d.inc);
   if(d.dec)addCart(+d.dec,-1);
   if(d.rm){save('seasonmart_cart',cart().filter(i=>i.id!==+d.rm));renderCart()}

@@ -22,6 +22,7 @@ from backend.models import (
     ReturnListItem,
     ReturnRecord,
     ReturnSubmission,
+    ServiceStockResponse,
     StockCheckRequest,
     StockNotification,
     StockSummary,
@@ -258,6 +259,21 @@ def ads_eligibility(product: str, season: str = "summer"):
     if result is None:
         raise HTTPException(status_code=404, detail="Product not found in catalog")
     return result
+
+
+@router.get("/service/stock-search", response_model=ServiceStockResponse)
+def service_stock_search(product: str, area_code: str):
+    """Storefront-facing, read-only lookup for an out-of-stock product:
+    runs the same local-warehouse-then-partner-shops check as the manual
+    stock-check below, but doesn't file anything in the Local Brand
+    Center's queue — that queue stays staff-driven. Lets a shopper see
+    whether a nearby local brand center has it without an operator
+    needing to run the check for them."""
+    area = mock_data.get_area(area_code)
+    if area is None:
+        raise HTTPException(status_code=404, detail="Area not found")
+    result = decision.evaluate_local_stock_lookup(product, area_code)
+    return ServiceStockResponse(product=product, area_code=area_code, area_name=area["name"], **result)
 
 
 @router.get("/service/repairs", response_model=list[RepairNotification])
